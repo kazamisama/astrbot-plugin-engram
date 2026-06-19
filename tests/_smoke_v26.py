@@ -249,7 +249,7 @@ def test_conf_schema_has_5_backup_fields():
     p = os.path.join(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "_conf_schema.json")
     schema = json.load(open(p, encoding="utf-8"))
-    assert len(schema) == 20, len(schema)
+    assert len(schema) == 22, len(schema)
     for k in ["enable_backup", "backup_interval_hours", "backup_keep_last",
               "backup_keep_weekly", "backup_keep_monthly"]:
         assert k in schema, k

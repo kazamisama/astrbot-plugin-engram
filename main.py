@@ -87,6 +87,10 @@ class HippocampusStar(Star):
         self._commands = CommandRouter(self._observer, self._recall,
                                        self._manage)
 
+        # 3. Register the Dashboard WebUI page API (no-op on old AstrBot)
+        self._page_api = None
+        self._register_official_page_api_if_available()
+
     # ---------- event hook ----------
     @filter.event_message_type(filter.EventMessageType.ALL)
     async def observe_message(self, event: AstrMessageEvent):

@@ -44,7 +44,7 @@ def test_registry_covers_all_memory_config_fields():
         f"missing in registry: {cfg_fields - registry_fields}\n"
         f"extra in registry:   {registry_fields - cfg_fields}"
     )
-    assert len(registry_fields) == 72  # B10: +5 backup fields (67+5=72)
+    assert len(registry_fields) == 74  # B10: +5 backup; +2 provider_id (67+5+2=74)
     print("  all 67 fields registered: OK")
 
 
@@ -186,7 +186,7 @@ def test_extras_collected_into_memory_config_extra():
 
 def test_labels_have_zh_and_en_for_every_field():
     banner("LABELS has zh + en for every field; spot-check 3 well-known fields")
-    assert len(LABELS) == 72  # B10: +5 backup
+    assert len(LABELS) == 74  # B10: +5 backup; +2 provider_id
     for fname, lab in LABELS.items():
         assert "zh" in lab and "en" in lab
         assert lab["zh"] and lab["en"], f"{fname}: empty label"

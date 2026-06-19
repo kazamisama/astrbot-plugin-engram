@@ -2,101 +2,133 @@
   "bot_language": {
     "type": "string",
     "default": "zh",
-    "description": "Bot reply language: zh (Chinese) or en (English). B8 i18n backend. Hot-reload not yet supported - restart plugin to take effect."
+    "description": "机器人回复语言",
+    "hint": "zh（中文）或 en（英文）。B8 i18n 后端。暂不支持热重载，修改后需重载插件生效。"
   },
   "sqlite_path": {
     "type": "string",
     "default": "data/hippocampus.db",
-    "description": "SQLite storage path"
+    "description": "SQLite 数据库路径",
+    "hint": "记忆数据的本地存储文件路径，相对插件数据目录。"
+  },
+  "embedding_provider_id": {
+    "type": "string",
+    "default": "",
+    "description": "AstrBot Embedding Provider ID",
+    "hint": "留空则使用 AstrBot 当前默认的 Embedding 提供商。可在 AstrBot 后台「服务提供商」页查看 Provider ID。仅在 embedding 选 astrmock 时生效。"
+  },
+  "llm_provider_id": {
+    "type": "string",
+    "default": "",
+    "description": "AstrBot LLM Provider ID",
+    "hint": "留空则使用 AstrBot 当前默认的对话模型。可在 AstrBot 后台「服务提供商」页查看 Provider ID。仅在 LLM 选 astrmock 时生效。"
   },
   "embedding_name": {
     "type": "string",
-    "default": "hash",
-    "description": "Embedding provider"
+    "default": "astrmock",
+    "description": "Embedding 提供商",
+    "hint": "astrmock=调用 AstrBot Embedding 接口（推荐）；openai=直连 OpenAI（需填下方 Key）；hash=本地无网兜底。"
   },
   "llm_name": {
     "type": "string",
-    "default": "rule",
-    "description": "LLM provider"
+    "default": "astrmock",
+    "description": "LLM 提供商",
+    "hint": "astrmock=调用 AstrBot 对话模型（推荐）；openai=直连 OpenAI（需填下方 Key）；rule=本地规则兜底。"
   },
   "embedding_dim": {
     "type": "int",
     "default": 64,
-    "description": "Embedding dimension"
+    "description": "Embedding 向量维度",
+    "hint": "本地 hash embedding 的向量维度；走 astrmock / openai 时以实际模型维度为准。"
   },
   "openai_api_key": {
     "type": "string",
     "default": "",
-    "description": "OpenAI API key"
+    "description": "OpenAI API Key",
+    "hint": "仅当 embedding/LLM 选择 openai 时需要填写。"
   },
   "openai_embedding_model": {
     "type": "string",
     "default": "text-embedding-3-small",
-    "description": "OpenAI embedding model"
+    "description": "OpenAI Embedding 模型",
+    "hint": "embedding 选 openai 时使用的模型名。"
   },
   "openai_llm_model": {
     "type": "string",
     "default": "gpt-4o-mini",
-    "description": "OpenAI LLM model"
+    "description": "OpenAI 对话模型",
+    "hint": "LLM 选 openai 时使用的模型名。"
   },
   "openai_base_url": {
     "type": "string",
     "default": "https://api.openai.com/v1",
-    "description": "OpenAI base URL"
+    "description": "OpenAI Base URL",
+    "hint": "OpenAI 兼容接口地址，使用第三方中转时修改此项。"
   },
   "auto_rebuild_on_switch": {
     "type": "bool",
     "default": true,
-    "description": "Auto rebuild on switch"
+    "description": "切换 Embedding 时自动重建向量",
+    "hint": "切换 embedding 提供商后，自动用新模型重新嵌入已有记忆。"
   },
   "enable_semantic": {
     "type": "bool",
     "default": true,
-    "description": "Enable semantic"
+    "description": "启用语义记忆（实体抽取）",
+    "hint": "从对话中抽取实体并构建语义网络。"
   },
   "enable_prospective": {
     "type": "bool",
     "default": true,
-    "description": "Enable prospective"
+    "description": "启用前瞻记忆（待办触发）",
+    "hint": "记录并在条件满足时触发未来意图 / 提醒。"
   },
   "enable_promotion": {
     "type": "bool",
     "default": true,
-    "description": "Enable promotion"
+    "description": "启用记忆晋升",
+    "hint": "将高价值的情景记忆晋升为长期记忆。"
   },
   "metamemory_enabled": {
     "type": "bool",
     "default": true,
-    "description": "Metamemory enabled"
+    "description": "启用元记忆",
+    "hint": "追踪记忆的置信度与来源等元信息。"
   },
   "enable_episodic_semantic": {
     "type": "bool",
     "default": true,
-    "description": "Enable episodic semantic"
+    "description": "启用情景到语义的固化",
+    "hint": "重放时将情景记忆固化为语义知识。"
   },
   "enable_backup": {
     "type": "bool",
     "default": true,
-    "description": "Enable automatic periodic .db backup (B10)"
+    "description": "启用自动定期备份",
+    "hint": "B10：周期性备份 .db 数据库文件。"
   },
   "backup_interval_hours": {
     "type": "float",
     "default": 24.0,
-    "description": "Backup interval in hours (0 = disabled)"
+    "description": "备份间隔（小时）",
+    "hint": "0 表示禁用自动备份。"
   },
   "backup_keep_last": {
     "type": "int",
     "default": 7,
-    "description": "Keep this many most recent backups"
+    "description": "保留最近备份数",
+    "hint": "保留最近的 N 个备份。"
   },
   "backup_keep_weekly": {
     "type": "int",
     "default": 1,
-    "description": "Keep one backup per ~7-day bucket beyond keep_last"
+    "description": "保留周备份数",
+    "hint": "在 keep_last 之外，每约 7 天保留一个备份。"
   },
   "backup_keep_monthly": {
     "type": "int",
     "default": 1,
-    "description": "Keep one backup per ~30-day bucket beyond weekly"
+    "description": "保留月备份数",
+    "hint": "在周备份之外，每约 30 天保留一个备份。"
   }
 }

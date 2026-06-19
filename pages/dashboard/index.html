@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Engram · 海马体记忆</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-dot"></span>
+          <span class="brand-name">Engram</span>
+          <span class="brand-sub">类海马体长期记忆</span>
+        </div>
+        <div class="status" id="health">连接中…</div>
+      </header>
+
+      <nav class="tabs">
+        <button class="tab active" data-tab="overview">概览</button>
+        <button class="tab" data-tab="memories">记忆列表</button>
+        <button class="tab" data-tab="recall">召回测试</button>
+        <button class="tab" data-tab="backups">备份</button>
+      </nav>
+
+      <main class="content">
+        <!-- 概览 -->
+        <section class="panel active" data-panel="overview">
+          <div class="cards" id="stat-cards"></div>
+          <button class="btn" id="btn-refresh-stats">刷新统计</button>
+        </section>
+
+        <!-- 记忆列表 -->
+        <section class="panel" data-panel="memories">
+          <div class="toolbar">
+            <input id="mem-actor" class="input" placeholder="按 actor_id 过滤（可空）" />
+            <input id="mem-k" class="input input-sm" type="number" value="50" min="1" max="500" />
+            <button class="btn" id="btn-load-mem">加载</button>
+          </div>
+          <div class="table-wrap">
+            <table class="table">
+              <thead><tr><th>ID</th><th>摘要</th><th>actor</th></tr></thead>
+              <tbody id="mem-rows"></tbody>
+            </table>
+          </div>
+          <div id="mem-detail" class="detail"></div>
+        </section>
+
+        <!-- 召回测试 -->
+        <section class="panel" data-panel="recall">
+          <div class="toolbar">
+            <input id="rc-query" class="input input-grow" placeholder="输入查询语句…" />
+            <select id="rc-mode" class="input input-sm">
+              <option value="hybrid">hybrid</option>
+              <option value="vector">vector</option>
+              <option value="fts">fts</option>
+            </select>
+            <input id="rc-k" class="input input-sm" type="number" value="5" min="1" max="50" />
+            <button class="btn" id="btn-recall">召回</button>
+          </div>
+          <pre id="rc-out" class="out"></pre>
+        </section>
+
+        <!-- 备份 -->
+        <section class="panel" data-panel="backups">
+          <div class="toolbar">
+            <button class="btn" id="btn-load-backups">加载备份列表</button>
+          </div>
+          <div class="table-wrap">
+            <table class="table">
+              <thead><tr><th>备份 ID</th><th>时间</th><th>大小</th><th></th></tr></thead>
+              <tbody id="bk-rows"></tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+      <div id="toast" class="toast"></div>
+    </div>
+    <script src="./app.js"></script>
+  </body>
+</html>

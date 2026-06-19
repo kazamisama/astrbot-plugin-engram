@@ -40,6 +40,9 @@ class MemoryConfig:
     # --- v0.3: 用户可切换模型 ---
     embedding_name: str = "hash"
     llm_name: str = "rule"
+    # AstrBot provider IDs（留空=用 AstrBot 当前默认 provider；走 astrmock 桥）
+    embedding_provider_id: str = ""
+    llm_provider_id: str = ""
     auto_rebuild_on_switch: bool = True
     rebuild_batch_size: int = 50
     # OpenAI provider 配置(由插件/AstrBot 注入到 registry 时读取)

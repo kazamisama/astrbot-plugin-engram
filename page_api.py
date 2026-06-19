@@ -3,23 +3,25 @@
 Inspired by astrbot_plugin_livingmemory.core.page_api, adapted to
 hippocampus's sync sqlite3 stack. The plugin main calls
 `_register_official_page_api_if_available()` once at startup; this
-class wires 8 GET/POST endpoints to the 4 handler modules.
+class wires GET/POST endpoints to the handler modules.
+
+AstrBot invokes registered handlers as `await view_handler(**path_vars)`
+(see dashboard/server.py:srv_plug_route). It passes *no* query string
+or JSON body to the callable, so every handler here is an async wrapper
+that reads parameters from `quart.request` directly.
 
 API prefix: /astrbot_plugin_engram/page
-Endpoints (10 total after B10):
-  GET  /stats           -> {engrams, fts, entities, atoms, ...}
-  GET  /memories        -> list_memories(actor_id, k, offset)
-  GET  /memories/detail -> get_memory_detail(eid)
-  POST /memories/delete -> delete_memory(eid, hard)
-  POST /recall/test     -> test_recall(query, mode, k)
-  GET  /graph/overview  -> graph_overview()
-  POST /graph/query     -> graph_query(name)
-  GET  /health          -> {status, version, language}
-  GET  /backups         -> list backups (newest first)
-  POST /backups/restore -> restore from backup_id (DANGEROUS)
-
-B10 (BackupManager) adds /backups (list) and /backups/restore; see
-page_api_modules/backup.py.
+Endpoints:
+  GET  /health           -> {version, language, service_ready}
+  GET  /stats            -> {engrams, fts, entities, atoms, ...}
+  GET  /memories         -> list_memories(actor_id, k, offset)
+  GET  /memories/detail  -> get_memory_detail(eid)
+  POST /memories/delete  -> delete_memory(eid, hard)
+  POST /recall/test      -> test_recall(query, mode, k)
+  GET  /graph/overview   -> graph_overview()
+  POST /graph/query      -> graph_query(name)
+  GET  /backups          -> list backups (newest first)
+  POST /backups/restore  -> restore from backup_id (DANGEROUS)
 """
 from __future__ import annotations
 import os
@@ -43,8 +45,51 @@ PLUGIN_NAME = "astrbot_plugin_engram"
 PAGE_API_PREFIX = f"/{PLUGIN_NAME}/page"
 
 
+async def _query_args() -> dict:
+    """Read query-string args from the active quart request (GET)."""
+    try:
+        from quart import request
+        return dict(request.args)
+    except Exception:
+        return {}
+
+
+async def _json_body() -> dict:
+    """Read the JSON body from the active quart request (POST).
+
+    Falls back to form / query args so the page still works if the
+    frontend sends params another way.
+    """
+    try:
+        from quart import request
+        data = await request.get_json(force=True, silent=True)
+        if isinstance(data, dict):
+            return data
+        form = await request.form
+        if form:
+            return dict(form)
+        return dict(request.args)
+    except Exception:
+        return {}
+
+
+def _as_int(val: Any, default: int) -> int:
+    try:
+        return int(val)
+    except (TypeError, ValueError):
+        return default
+
+
+def _as_bool(val: Any, default: bool = False) -> bool:
+    if isinstance(val, bool):
+        return val
+    if val is None:
+        return default
+    return str(val).strip().lower() in {"1", "true", "yes", "on"}
+
+
 class PluginPageApi:
-    """Facade registering 10 web endpoints with the AstrBot host."""
+    """Facade registering the web endpoints with the AstrBot host."""
 
     def __init__(self, plugin) -> None:
         self.plugin = plugin
@@ -70,48 +115,34 @@ class PluginPageApi:
         return getattr(init, "backup_manager", None)
 
     def register_routes(self) -> None:
-        """Register all 8 endpoints. The plugin's context must have
-        `register_web_api(path, handler, methods, name)`; missing on
-        older AstrBot versions is handled by the caller."""
+        """Register all endpoints. The plugin's context must expose
+        `register_web_api(route, handler, methods, desc)`; a missing
+        method on older AstrBot is handled by the caller."""
         register = self.plugin.context.register_web_api
-
-        def svc():
-            return self._service()
 
         register(f"{PAGE_API_PREFIX}/health", self._health,
                  ["GET"], "Hippocampus health probe")
-        register(f"{PAGE_API_PREFIX}/stats", lambda: self.stats_handler.get_stats(svc()),
+        register(f"{PAGE_API_PREFIX}/stats", self._stats,
                  ["GET"], "Hippocampus stats")
-        register(f"{PAGE_API_PREFIX}/memories",
-                 lambda actor_id="", k=50, offset=0: self.memory_handler.list_memories(
-                     svc(), actor_id=actor_id, k=k, offset=offset),
+        register(f"{PAGE_API_PREFIX}/memories", self._list_memories,
                  ["GET"], "Hippocampus memory list")
-        register(f"{PAGE_API_PREFIX}/memories/detail",
-                 lambda eid="": self.memory_handler.get_memory_detail(svc(), eid=eid),
+        register(f"{PAGE_API_PREFIX}/memories/detail", self._memory_detail,
                  ["GET"], "Hippocampus memory detail")
-        register(f"{PAGE_API_PREFIX}/memories/delete",
-                 lambda eid="", hard=False: self.memory_handler.delete_memory(
-                     svc(), eid=eid, hard=hard),
+        register(f"{PAGE_API_PREFIX}/memories/delete", self._delete_memory,
                  ["POST"], "Hippocampus memory delete")
-        register(f"{PAGE_API_PREFIX}/recall/test",
-                 lambda query="", mode="hybrid", k=5: self.recall_handler.test_recall(
-                     svc(), query=query, mode=mode, k=k),
+        register(f"{PAGE_API_PREFIX}/recall/test", self._test_recall,
                  ["POST"], "Hippocampus recall test")
-        register(f"{PAGE_API_PREFIX}/graph/overview",
-                 lambda: self.graph_handler.graph_overview(svc()),
+        register(f"{PAGE_API_PREFIX}/graph/overview", self._graph_overview,
                  ["GET"], "Hippocampus graph overview")
-        register(f"{PAGE_API_PREFIX}/graph/query",
-                 lambda name="": self.graph_handler.graph_query(svc(), name=name),
+        register(f"{PAGE_API_PREFIX}/graph/query", self._graph_query,
                  ["POST"], "Hippocampus graph query")
-        register(f"{PAGE_API_PREFIX}/backups",
-                 lambda: self.backup_handler.list_backups(self._backup_manager()),
+        register(f"{PAGE_API_PREFIX}/backups", self._list_backups,
                  ["GET"], "Hippocampus backup list")
-        register(f"{PAGE_API_PREFIX}/backups/restore",
-                 lambda backup_id="": self.backup_handler.restore_backup(
-                     self._backup_manager(), backup_id=backup_id),
+        register(f"{PAGE_API_PREFIX}/backups/restore", self._restore_backup,
                  ["POST"], "Hippocampus backup restore")
 
-    def _health(self) -> dict[str, Any]:
+    # ---------- async route handlers ----------
+    async def _health(self) -> dict[str, Any]:
         from hippocampus import __version__
         from hippocampus.i18n_backend import current_language
         return self.utils.ok({
@@ -119,3 +150,53 @@ class PluginPageApi:
             "language": current_language(),
             "service_ready": self._service() is not None,
         })
+
+    async def _stats(self) -> dict[str, Any]:
+        return self.stats_handler.get_stats(self._service())
+
+    async def _list_memories(self) -> dict[str, Any]:
+        args = await _query_args()
+        return self.memory_handler.list_memories(
+            self._service(),
+            actor_id=str(args.get("actor_id", "")),
+            k=_as_int(args.get("k"), 50),
+            offset=_as_int(args.get("offset"), 0),
+        )
+
+    async def _memory_detail(self) -> dict[str, Any]:
+        args = await _query_args()
+        return self.memory_handler.get_memory_detail(
+            self._service(), eid=str(args.get("eid", "")))
+
+    async def _delete_memory(self) -> dict[str, Any]:
+        body = await _json_body()
+        return self.memory_handler.delete_memory(
+            self._service(),
+            eid=str(body.get("eid", "")),
+            hard=_as_bool(body.get("hard"), False),
+        )
+
+    async def _test_recall(self) -> dict[str, Any]:
+        body = await _json_body()
+        return self.recall_handler.test_recall(
+            self._service(),
+            query=str(body.get("query", "")),
+            mode=str(body.get("mode", "hybrid")),
+            k=_as_int(body.get("k"), 5),
+        )
+
+    async def _graph_overview(self) -> dict[str, Any]:
+        return self.graph_handler.graph_overview(self._service())
+
+    async def _graph_query(self) -> dict[str, Any]:
+        body = await _json_body()
+        return self.graph_handler.graph_query(
+            self._service(), name=str(body.get("name", "")))
+
+    async def _list_backups(self) -> dict[str, Any]:
+        return self.backup_handler.list_backups(self._backup_manager())
+
+    async def _restore_backup(self) -> dict[str, Any]:
+        body = await _json_body()
+        return self.backup_handler.restore_backup(
+            self._backup_manager(), backup_id=str(body.get("backup_id", "")))

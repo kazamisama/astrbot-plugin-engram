@@ -60,6 +60,8 @@ _FIELDS: dict[str, _FieldSpec] = {
     # v0.3
     "embedding_name": _FieldSpec(str, label_zh="Embedding provider", label_en="Embedding provider"),
     "llm_name": _FieldSpec(str, label_zh="LLM provider", label_en="LLM provider"),
+    "embedding_provider_id": _FieldSpec(str, label_zh="AstrBot embedding Provider ID", label_en="AstrBot embedding provider id"),
+    "llm_provider_id": _FieldSpec(str, label_zh="AstrBot LLM Provider ID", label_en="AstrBot LLM provider id"),
     "auto_rebuild_on_switch": _FieldSpec(bool, label_zh="切换 embedding 时自动重建", label_en="Auto rebuild on switch"),
     "rebuild_batch_size": _FieldSpec(int, (1, 10000), label_zh="重建批大小", label_en="Rebuild batch size"),
     "openai_api_key": _FieldSpec(str, label_zh="OpenAI API Key", label_en="OpenAI API key"),

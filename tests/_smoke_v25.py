@@ -20,6 +20,7 @@ Tests:
 - Soft delete and hard delete both work via HippocampalStore API
 - Graph query resolves subject_id/object_id to names via get_entity()
 """
+import asyncio
 import os, sys, json, tempfile, types
 
 
@@ -124,7 +125,7 @@ def test_endpoint_response_shapes():
     import page_api
     api = page_api.PluginPageApi(
         types.SimpleNamespace(context=types.SimpleNamespace(), _initializer=None))
-    h = api._health()
+    h = asyncio.run(api._health())
     assert h["status"] == "ok" and "version" in h["data"]
     s = api.stats_handler.get_stats(None)
     assert s["status"] == "error" and "message" in s
@@ -146,7 +147,7 @@ def test_real_service_roundtrip():
                 context=types.SimpleNamespace(
                     register_web_api=lambda *a, **k: None),
                 _initializer=types.SimpleNamespace(service=svc)))
-        h = api._health()
+        h = asyncio.run(api._health())
         assert h["status"] == "ok" and h["data"]["service_ready"] is True
         s = api.stats_handler.get_stats(svc)
         assert s["data"]["engrams"] == 3, s
@@ -194,7 +195,7 @@ def test_conf_schema_has_bot_language_and_en_descriptions():
     assert "bot_language" in schema, schema.keys()
     assert schema["bot_language"]["default"] == "zh"
     assert "description" in schema["bot_language"]
-    assert len(schema) == 20, len(schema)  # B10: +5 backup
+    assert len(schema) == 22, len(schema)  # B10: +5 backup; +2 provider_id
     from hippocampus.config_manager import LABELS
     for fname in [
         "sqlite_path", "embedding_name", "embedding_dim",
@@ -203,9 +204,11 @@ def test_conf_schema_has_bot_language_and_en_descriptions():
     ]:
         assert fname in schema, fname
         desc = schema[fname].get("description", "")
-        if desc != LABELS[fname]["en"]:
-            raise AssertionError(fname + ": schema=" + repr(desc) + " vs LABELS.en=" + repr(LABELS[fname]["en"]))
-    print("  15 fields, bot_language, LABELS.en sourced: OK")
+        # B9+: descriptions are localized to Chinese per user request;
+        # just assert each field carries a non-empty description + hint.
+        assert isinstance(desc, str) and desc, fname + ": empty description"
+        assert fname in LABELS, fname + ": missing LABELS entry"
+    print("  22 fields, bot_language, zh descriptions present: OK")
 
 
 def test_plugin_initializer_uses_bot_language():

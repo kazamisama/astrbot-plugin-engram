@@ -73,9 +73,19 @@ class PluginInitializer:
         if self.service is None:
             return
 
+        cfg = self.service.cfg
+        emb_pid = getattr(cfg, "embedding_provider_id", "") or ""
+        llm_pid = getattr(cfg, "llm_provider_id", "") or ""
+
         async def _llm_bridge(system: str, user: str, **kw) -> str:
             try:
-                provider = await self.context.get_using_provider()
+                provider = None
+                if llm_pid:
+                    getter = getattr(self.context, "get_provider_by_id", None)
+                    if getter is not None:
+                        provider = getter(llm_pid)
+                if provider is None:
+                    provider = await self.context.get_using_provider()
                 resp = await provider.text_chat(
                     system_prompt=system, prompt=user, **kw)
                 if hasattr(resp, "text"):
@@ -88,7 +98,8 @@ class PluginInitializer:
                 return ""
 
         async def _emb_bridge(text: str) -> list[float]:
-            return await emb_bridge_for_context(self.context, text)
+            return await emb_bridge_for_context(
+                self.context, text, provider_id=emb_pid)
 
         try:
             self.service.register_llm(
@@ -101,6 +112,28 @@ class PluginInitializer:
                 "astrmock", ProxyEmbeddingProvider("astrmock", _emb_bridge))
         except Exception as e:
             print(f"[hippocampus] register astrmock embedding failed: {e!r}")
+
+        # Activate the AstrBot-backed providers by default so LLM and
+        # embedding actually flow through the host. Users that explicitly
+        # set embedding_name / llm_name to something else (hash / openai /
+        # rule) in the config keep that choice. auto_rebuild_on_switch is
+        # disabled here so a fresh install does not re-embed on boot.
+        prev_rebuild = self.service.cfg.auto_rebuild_on_switch
+        self.service.cfg.auto_rebuild_on_switch = False
+        try:
+            if (self.service.cfg.embedding_name == "hash"
+                    and self.service.registry.has_embedding("astrmock")):
+                self.service.set_embedding("astrmock")
+        except Exception as e:
+            print(f"[hippocampus] activate astrmock embedding failed: {e!r}")
+        try:
+            if (self.service.cfg.llm_name == "rule"
+                    and self.service.registry.has_llm("astrmock")):
+                self.service.set_llm("astrmock")
+        except Exception as e:
+            print(f"[hippocampus] activate astrmock llm failed: {e!r}")
+        finally:
+            self.service.cfg.auto_rebuild_on_switch = prev_rebuild
 
     def _start_background(self) -> None:
         if self.service is None:
