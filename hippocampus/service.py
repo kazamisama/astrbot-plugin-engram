@@ -517,11 +517,11 @@ class MemoryService:
             return 0
         return self.profile.decay_facts(actor_id, self.cfg)
 
-    def spread_activation(self, seeds, *, depth=None):
+    def spread_activation(self, seeds, *, depth=None, decay=None, floor=None):
         if self.activation is None:
             return {}
         try:
-            return self.activation.activate(seeds, depth=depth)
+            return self.activation.activate(seeds, depth=depth, decay=decay, floor=floor)
         except Exception:
             return {}
 
