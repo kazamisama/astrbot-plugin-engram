@@ -58,7 +58,8 @@ from handlers import (
     render_stats,
 )
 from handlers.init import PluginInitializer
-from handlers.event import (ObserveHandler, RecallHandler, ManageHandler)
+from handlers.event import (ObserveHandler, RecallHandler, ManageHandler,
+                            InjectHandler)
 from handlers.commands import CommandRouter
 
 
@@ -84,6 +85,7 @@ class HippocampusStar(Star):
         self._observer = ObserveHandler(self.service)
         self._recall = RecallHandler(self.service)
         self._manage = ManageHandler(self.service)
+        self._inject = InjectHandler(self.service)
         self._commands = CommandRouter(self._observer, self._recall,
                                        self._manage)
 
@@ -95,6 +97,16 @@ class HippocampusStar(Star):
     @filter.event_message_type(filter.EventMessageType.ALL)
     async def observe_message(self, event: AstrMessageEvent):
         await self._observer.handle_message(event)
+
+    # ---------- v1.5: auto memory injection before each LLM call ----------
+    @filter.on_llm_request()
+    async def inject_memory(self, event: AstrMessageEvent, req):
+        """Auto-inject recalled memories into req.prompt. No-op unless
+        auto_inject_enabled is on; never aborts the LLM request."""
+        try:
+            await self._inject.handle_inject(event, req)
+        except Exception as ex:
+            print("[hippocampus] inject_memory hook error: " + repr(ex))
 
     # ---------- commands (thin wrappers) ----------
     # Each wrapper yields whatever the handler returns. Decorator

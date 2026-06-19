@@ -76,6 +76,24 @@
         "default": true,
         "description": "启用情景到语义的固化",
         "hint": "重放时将情景记忆固化为语义知识。"
+      },
+      "auto_inject_enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "启用记忆自动注入",
+        "hint": "开启后，在每次调用对话模型前自动检索相关长期记忆，并拼接进发送给 LLM 的用户消息中（无需 LLM 主动调用工具）。默认关闭，保持原有「按需工具调用」行为。"
+      },
+      "auto_inject_top_k": {
+        "type": "int",
+        "default": 3,
+        "description": "自动注入条数",
+        "hint": "每次自动注入最多拼接多少条记忆摘要。数值越大占用上下文 token 越多，建议 1-5。"
+      },
+      "auto_inject_position": {
+        "type": "string",
+        "default": "before",
+        "description": "自动注入位置",
+        "hint": "before=把记忆拼在用户消息之前，after=拼在之后。默认 before。"
       }
     }
   },

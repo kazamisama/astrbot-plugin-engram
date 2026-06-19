@@ -39,6 +39,10 @@ def _install_stub():
         def command(self, *a, **k):
             def deco(fn): return fn
             return deco
+        @staticmethod
+        def on_llm_request(*a, **k):
+            def deco(fn): return fn
+            return deco
     sm.Star = Star; sm.register = register; sm.Context = Context
     em.filter = _F; em.AstrMessageEvent = AstrMessageEvent; em.EventMessageType = _MT
     sys.modules["astrbot"] = a; sys.modules["astrbot.api"] = ai

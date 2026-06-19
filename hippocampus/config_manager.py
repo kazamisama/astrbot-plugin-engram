@@ -109,6 +109,10 @@ _FIELDS: dict[str, _FieldSpec] = {
     "backup_keep_last": _FieldSpec(int, (0, 365), label_zh="保留最近 N 份", label_en="Keep last N backups"),
     "backup_keep_weekly": _FieldSpec(int, (0, 52), label_zh="每周保留 N 份", label_en="Keep weekly N"),
     "backup_keep_monthly": _FieldSpec(int, (0, 60), label_zh="每月保留 N 份", label_en="Keep monthly N"),
+    # v1.5 auto injection
+    "auto_inject_enabled": _FieldSpec(bool, label_zh="启用记忆自动注入", label_en="Auto inject enabled"),
+    "auto_inject_top_k": _FieldSpec(int, (0, 50), label_zh="自动注入条数", label_en="Auto inject top k"),
+    "auto_inject_position": _FieldSpec(str, label_zh="自动注入位置", label_en="Auto inject position"),
 }
 
 # Public i18n label dict: field name -> {zh, en}. Stable API for B8

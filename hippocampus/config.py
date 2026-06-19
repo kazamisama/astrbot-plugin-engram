@@ -108,3 +108,7 @@ class MemoryConfig:
     backup_keep_last: int = 7
     backup_keep_weekly: int = 1
     backup_keep_monthly: int = 1
+    # --- v1.5: auto memory injection into LLM context (on_llm_request) ---
+    auto_inject_enabled: bool = False
+    auto_inject_top_k: int = 3
+    auto_inject_position: str = "before"

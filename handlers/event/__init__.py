@@ -7,5 +7,6 @@ thin wrappers that forward to these classes.
 from .observe import ObserveHandler
 from .recall import RecallHandler
 from .manage import ManageHandler
+from .inject import InjectHandler
 
-__all__ = ["ObserveHandler", "RecallHandler", "ManageHandler"]
+__all__ = ["ObserveHandler", "RecallHandler", "ManageHandler", "InjectHandler"]
