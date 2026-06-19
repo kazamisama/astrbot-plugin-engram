@@ -297,8 +297,7 @@ PYTHONPATH=astrbot_plugin python astrbot_plugin/_smoke_v13.py
 
 - **A1** 双路召回(document + graph)+ RRF 融合(hippocampus/retrieval/)
 - **A2** /mem search --mode=dual 命令路由 + 渲染
-- **A3** LLM Agent Tool(
-ecall_long_term_memory / memorize_long_term_memory)
+- **A3** LLM Agent Tool(recall_long_term_memory / memorize_long_term_memory)
 - **A4** RRF 融合用业务稳定 ID(item.id)去重,修 vec+fts 不合 engram 的潜在 bug
 - **A5** 版本 bump 1.2.0 → 1.3.0(metadata / __init__ / _registered_version 三方对齐)
 - **A6** smoke v14/v15/v16 覆盖双路召回
@@ -309,7 +308,7 @@ ecall_long_term_memory / memorize_long_term_memory)
   - 新增 hippocampus/processors/text_processor.py + StopwordsManager
 - **B2** 群聊被动捕获 + session 过滤(避免群聊噪声污染长期记忆)
   - 新增 hippocampus/session_filter.py(allowlist / blocklist / per-group 配置)
-  - 新增 enable_group_capture / group_allowlist / locked_keywords 配置字段
+  - 新增 enable_group_capture / group_allowlist / blocked_keywords 配置字段
   - 在 MemoryService.observe() 前置过滤
   - 新增 /mem session 命令查看当前策略
 - **B3** MemoryAtom 数据层(typed fact/preference 记忆单元,独立于 engram)
@@ -319,14 +318,14 @@ ecall_long_term_memory / memorize_long_term_memory)
 - **B4** MemoryAtom 接入 MemoryService.observe() + 异步维护循环
   - hippocampus/semantic.py EntityExtractor 加 extract_atoms(engram) 轻包装
   - hippocampus/atom_lifecycle_manager.py 加 async _maintenance_loop + start/stop
-  - MemoryService.start_background_tasks 自动检 loop,有则 syncio.create_task,无则退到 daemon thread + call_soon_threadsafe(AstrBot 同步线程下不报错)
+  - MemoryService.start_background_tasks 自动检 loop,有则 asyncio.create_task,无则退到 daemon thread + call_soon_threadsafe(AstrBot 同步线程下不报错)
   - MemoryService._post_ingest 末尾 wire atom 层 + graph 层
-- **B5** 新增 3 个 Agent Tool:orget / list_recent / search_by_entity
-  - 同步扩展 ll_tools() 工厂,工具数 2 → 5
+- **B5** 新增 3 个 Agent Tool:forget / list_recent / search_by_entity
+  - 同步扩展 all_tools() 工厂,工具数 2 → 5
 
 ## 已知遗留
 
-- v11 smoke 一致失败,根因 MemoryService 调了不存在的 self.activation.spread(...),正确方法名是 ctivate(v1.3 时期埋下的 latent bug)。**不在已 ship 的 scope 内**,留到下次大重构时顺手修。
+- v11 smoke 一致失败,根因 MemoryService 调了不存在的 self.activation.spread(...),正确方法名是 activate(v1.3 时期埋下的 latent bug)。**不在已 ship 的 scope 内**,留到下次大重构时顺手修。
 - write_ops 表 + 不完整写修复(memory_engine._create_tracked_task / _repair_incomplete_write_ops)→ 下一个 milestone。
 - BM25 retriever(core/retrieval/bm25_retriever.py)→ 性能 milestone 一起做。
 - EventHandler 拆分模式(core/event_handler_modules/{group_capture, memory_recall, memory_reflection}.py)→ 下一个里程碑。
