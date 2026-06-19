@@ -62,7 +62,11 @@ class OpenAILLMProvider(LLMProvider):
 
 class ProxyLLMProvider(LLMProvider):
     """User injects a callable. Most flexible: bridge AstrBot current LLM or
-    any custom model. fn signature: fn(system, user, **kw) -> str"""
+    any custom model. fn signature: fn(system, user, **kw) -> str.
+
+    fn may be sync or async; coroutine results are driven to completion on a
+    background loop so chat() stays a plain sync call even when invoked from
+    an async event handler."""
     def __init__(self, identity: str, fn) -> None:
         if not identity: raise ValueError("identity required")
         if not callable(fn): raise TypeError("fn must be callable")
@@ -70,7 +74,12 @@ class ProxyLLMProvider(LLMProvider):
         self._fn = fn
     def name(self) -> str: return self._id
     def chat(self, system: str, user: str, **kw) -> str:
-        return self._fn(system=system, user=user, **kw)
+        import inspect
+        out = self._fn(system=system, user=user, **kw)
+        if inspect.isawaitable(out):
+            from ._async_bridge import run_sync
+            out = run_sync(out)
+        return out
 
 class AstrBotLLMProvider(LLMProvider):
     """Bridge to AstrBot current LLM provider. The actual bridge is set per-process
@@ -82,6 +91,11 @@ class AstrBotLLMProvider(LLMProvider):
     def chat(self, system: str, user: str, **kw) -> str:
         if self._bridge is None: return ""
         try:
-            return self._bridge(system=system, user=user, **kw) or ""
+            import inspect
+            out = self._bridge(system=system, user=user, **kw)
+            if inspect.isawaitable(out):
+                from ._async_bridge import run_sync
+                out = run_sync(out)
+            return out or ""
         except Exception:
             return ""

@@ -2,6 +2,7 @@ from __future__ import annotations
 import json, urllib.request, urllib.error
 from .embeddings import EmbeddingProvider
 from .llm import LLMProvider, RuleLLMProvider, OpenAILLMProvider, AstrBotLLMProvider
+from ._async_bridge import run_sync
 
 class ProviderRegistry:
     """User-selectable provider pool. Names are stable string IDs."""
@@ -79,7 +80,10 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
 class ProxyEmbeddingProvider(EmbeddingProvider):
     """User injects a callable. Most flexible: works with any embedding source
     (AstrBot internal API, BGE, Cohere, custom local model, ...).
-    fn: (str) -> list[float]
+
+    fn may be sync (str -> list[float]) or async (str -> Awaitable[list[float]]);
+    coroutine results are driven to completion on a background loop so embed()
+    stays a plain sync call even when invoked from an async event handler.
     """
     def __init__(self, identity: str, fn) -> None:
         if not identity: raise ValueError("identity required")
@@ -87,7 +91,7 @@ class ProxyEmbeddingProvider(EmbeddingProvider):
         self._id = identity
         self._fn = fn
         # auto-detect dim
-        sample = fn("dim-probe")
+        sample = self._call("dim-probe")
         if not isinstance(sample, list) or not all(isinstance(x, (int, float)) for x in sample):
             raise TypeError("fn must return list[float]")
         if len(sample) == 0: raise ValueError("fn returned empty vector")
@@ -95,8 +99,14 @@ class ProxyEmbeddingProvider(EmbeddingProvider):
     @property
     def dim(self) -> int: return self._dim
     def name(self) -> str: return self._id
+    def _call(self, text: str) -> list[float]:
+        import inspect
+        out = self._fn(text)
+        if inspect.isawaitable(out):
+            out = run_sync(out)
+        return out
     def embed(self, text: str) -> list[float]:
-        return self._fn(text)
+        return self._call(text)
 
 def default_registry() -> ProviderRegistry:
     """Returns a registry pre-populated with safe defaults. Does NOT call network."""

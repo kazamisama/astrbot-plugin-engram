@@ -140,6 +140,13 @@ class MemoryService:
         self._current_llm_name = name
         return f"switched llm {old} -> {name}"
 
+    # ---------- provider registration (delegates to registry) ----------
+    def register_embedding(self, name: str, provider: EmbeddingProvider) -> None:
+        self.registry.register_embedding(name, provider)
+
+    def register_llm(self, name: str, provider: LLMProvider) -> None:
+        self.registry.register_llm(name, provider)
+
     def current_embedding(self) -> str:
         return self._current_embedding_name
 
@@ -377,6 +384,13 @@ class MemoryService:
             return False
         return self.prospective_store.cancel(trigger_id)
 
+    # ---------- async lifecycle (used by the AstrBot plugin shell) ----------
+    async def start(self) -> None:
+        self.start_background_tasks()
+
+    async def stop(self) -> None:
+        await self.stop_background_tasks()
+
     # ---------- v1.4 B3: background maintenance ----------
     # Works whether or not a loop is running: falls back to a dedicated
     # daemon thread + new_event_loop when called from sync code.
@@ -555,7 +569,8 @@ class MemoryService:
     # ---------- shutdown ----------
     def close(self) -> None:
 
-        for name in ("store", "semantic", "atom_store", "graph_store"):
+        for name in ("store", "semantic", "atom_store", "graph_store",
+                     "prospective_store", "profile"):
             obj = getattr(self, name, None)
             if obj is None:
                 continue

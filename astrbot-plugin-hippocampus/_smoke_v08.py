@@ -86,6 +86,8 @@ def main_test():
         print(render_stats(svc2))
         try: asyncio.run(svc2.stop())
         except Exception: pass
+        try: svc2.close()
+        except Exception: pass
 
         banner("graph")
         g = format_graph(svc, "Alice")

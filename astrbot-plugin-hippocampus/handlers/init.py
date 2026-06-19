@@ -106,11 +106,14 @@ class PluginInitializer:
         if self.service is None:
             return
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = None
+            if loop is not None:
                 loop.create_task(self.service.start())
             else:
-                loop.run_until_complete(self.service.start())
+                asyncio.run(self.service.start())
         except Exception as e:
             print(f"[hippocampus] start background task failed: {e!r}")
 
