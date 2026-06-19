@@ -11,6 +11,7 @@ One row per (actor_id). Personas are stable background and do NOT
 participate in decay / GC.
 """
 from __future__ import annotations
+import json
 import sqlite3
 import time
 from dataclasses import dataclass, field
@@ -20,10 +21,23 @@ def _now() -> float:
     return time.time()
 
 
+def _loads_tags(raw) -> list:
+    if not raw:
+        return []
+    if isinstance(raw, list):
+        return [str(t) for t in raw if str(t).strip()]
+    try:
+        v = json.loads(raw)
+        return [str(t) for t in v if str(t).strip()] if isinstance(v, list) else []
+    except Exception:
+        return []
+
+
 @dataclass
 class Persona:
     actor_id: str
     summary: str = ""
+    tags: list = field(default_factory=list)
     platform: str = ""
     source_count: int = 0
     created_at: float = field(default_factory=_now)
@@ -34,6 +48,7 @@ class Persona:
         return cls(
             actor_id=row.get("actor_id", ""),
             summary=row.get("summary", "") or "",
+            tags=_loads_tags(row.get("tags")),
             platform=row.get("platform", "") or "",
             source_count=int(row.get("source_count", 0) or 0),
             created_at=float(row.get("created_at", 0.0) or 0.0),
@@ -67,6 +82,7 @@ class PersonaStore:
             CREATE TABLE IF NOT EXISTS personas (
               actor_id TEXT PRIMARY KEY,
               summary TEXT,
+              tags TEXT,
               platform TEXT,
               source_count INTEGER DEFAULT 0,
               created_at REAL,
@@ -74,6 +90,13 @@ class PersonaStore:
             );
             """
         )
+        # Back-compat: add tags column to pre-v1.9 personas tables.
+        cols = {r[1] for r in conn.execute("PRAGMA table_info(personas)")}
+        if "tags" not in cols:
+            try:
+                conn.execute("ALTER TABLE personas ADD COLUMN tags TEXT")
+            except Exception:
+                pass
         conn.commit()
 
     def close(self) -> None:
@@ -96,17 +119,21 @@ class PersonaStore:
             now = _now()
             if row is None:
                 conn.execute(
-                    "INSERT INTO personas(actor_id,summary,platform,"
-                    "source_count,created_at,updated_at) VALUES(?,?,?,?,?,?)",
-                    (persona.actor_id, persona.summary, persona.platform,
+                    "INSERT INTO personas(actor_id,summary,tags,platform,"
+                    "source_count,created_at,updated_at) VALUES(?,?,?,?,?,?,?)",
+                    (persona.actor_id, persona.summary,
+                     json.dumps(persona.tags, ensure_ascii=False),
+                     persona.platform,
                      int(persona.source_count), now, now))
                 persona.created_at = now
                 persona.updated_at = now
                 return persona
             conn.execute(
-                "UPDATE personas SET summary=?, platform=?, source_count=?, "
+                "UPDATE personas SET summary=?, tags=?, platform=?, source_count=?, "
                 "updated_at=? WHERE actor_id=?",
-                (persona.summary, persona.platform, int(persona.source_count),
+                (persona.summary,
+                 json.dumps(persona.tags, ensure_ascii=False),
+                 persona.platform, int(persona.source_count),
                  now, persona.actor_id))
             persona.updated_at = now
             return persona

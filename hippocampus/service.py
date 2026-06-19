@@ -541,20 +541,59 @@ class MemoryService:
             return None
         corpus = "\n".join(lines)
         system = (
-            "你是一个用户画像助手。基于该用户最近的消息，用中文写一段简洁、"
-            "客观的用户画像，概括其稳定的偏好、身份特征与行为习惯。只输出画像"
-            "正文，不要前缀、不要罗列原文。控制在 120 字以内。")
+            "你是一个用户画像助手。基于该用户最近的消息，输出一个 JSON 对象："
+            "{\"summary\": \"一段简洁客观的中文画像，概括稳定偏好/身份/行为，"
+            "120 字以内\", \"tags\": [\"3 到 5 个最能概括该用户的关键词\"]}。"
+            "只输出 JSON，不要额外文字。")
         try:
-            summary = self.llm.chat(system, corpus, max_tokens=256) or ""
+            raw = self.llm.chat(system, corpus, max_tokens=320) or ""
         except Exception as ex:
             print("[hippocampus] build_persona llm error: " + repr(ex))
-            summary = ""
-        summary = summary.strip()
+            raw = ""
+        summary, tags = self._parse_persona_output(raw)
         if not summary:
             return None
-        persona = Persona(actor_id=actor_id, summary=summary,
+        from .quality import check_summary
+        warn = check_summary(summary, label="persona")
+        if warn:
+            print(warn + " actor=" + str(actor_id))
+        persona = Persona(actor_id=actor_id, summary=summary, tags=tags,
                           platform=platform, source_count=len(rows))
         return self.persona_store.upsert(persona)
+
+    @staticmethod
+    def _parse_persona_output(raw):
+        """Parse the persona LLM output into (summary, tags). Accepts a JSON
+        object {summary, tags}; falls back to treating the whole text as the
+        summary (with empty tags) when it is not valid JSON."""
+        import json as _json
+        text = (raw or "").strip()
+        if not text:
+            return "", []
+        # Strip ```json fences if present.
+        if text.startswith("```"):
+            text = text.strip("`")
+            nl = text.find("\n")
+            if nl != -1 and text[:nl].strip().lower() in ("json", ""):
+                text = text[nl + 1:]
+        # Try to isolate the first {...} block.
+        start = text.find("{")
+        end = text.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            blob = text[start:end + 1]
+            try:
+                obj = _json.loads(blob)
+                summary = str(obj.get("summary", "")).strip()
+                tags_raw = obj.get("tags", [])
+                tags = []
+                if isinstance(tags_raw, list):
+                    tags = [str(t).strip() for t in tags_raw if str(t).strip()][:5]
+                if summary:
+                    return summary, tags
+            except Exception:
+                pass
+        # Fallback: whole text is the summary.
+        return text, []
 
     def get_persona(self, actor_id):
         if self.persona_store is None or not actor_id:

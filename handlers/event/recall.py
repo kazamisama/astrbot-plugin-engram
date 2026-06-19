@@ -85,15 +85,19 @@ class RecallHandler:
         if persona is None or not (persona.summary or "").strip():
             existing = self.service.get_persona(actor_id)
             if existing is not None and (existing.summary or "").strip():
+                etags = ("\n标签：" + " / ".join(existing.tags)) if getattr(existing, "tags", None) else ""
                 yield event.plain_result(
-                    "用户画像（" + actor_id + "，未更新）：\n" + existing.summary)
+                    "用户画像（" + actor_id + "，未更新）：\n" + existing.summary + etags)
             else:
                 yield event.plain_result(
                     "无法生成画像：该用户暂无足够记忆，或当前 LLM 为规则兜底。")
             return
+        tag_line = ""
+        if getattr(persona, "tags", None):
+            tag_line = "\n标签：" + " / ".join(persona.tags)
         yield event.plain_result(
             "用户画像（" + actor_id + "，基于 " + str(persona.source_count)
-            + " 条记忆）：\n" + persona.summary)
+            + " 条记忆）：\n" + persona.summary + tag_line)
 
     async def cmd_mem_activate(self, event, seeds: str = ""):
         from ..format import format_activation

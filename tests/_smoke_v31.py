@@ -69,10 +69,11 @@ def test_persona_store_crud():
     d = tempfile.mkdtemp()
     store = PersonaStore(os.path.join(d, "p.db"))
     assert store.get("u1") is None
-    store.upsert(Persona(actor_id="u1", summary="喜欢侦探小说", platform="qq", source_count=3))
+    store.upsert(Persona(actor_id="u1", summary="喜欢侦探小说", tags=["侦探", "推理"], platform="qq", source_count=3))
     got = store.get("u1")
     assert got is not None and got.summary == "喜欢侦探小说"
     assert got.source_count == 3
+    assert got.tags == ["侦探", "推理"], got.tags
     # update path
     store.upsert(Persona(actor_id="u1", summary="改成喜欢推理", source_count=5))
     got2 = store.get("u1")
@@ -89,7 +90,7 @@ class _StubLLM:
     def name(self):
         return "stub"
     def chat(self, system, user, **k):
-        return "该用户偏好技术讨论，活跃于 AstrBot 生态。"
+        return '{"summary": "该用户偏好技术讨论，活跃于 AstrBot 生态。", "tags": ["技术", "AstrBot", "Agent"]}'
 
 
 def _build_service(tmp, llm):
@@ -116,6 +117,8 @@ def test_build_persona_with_llm():
     p = svc.build_persona("u1")
     assert p is not None, "expected a persona"
     assert "AstrBot" in p.summary or "技术" in p.summary
+    assert "技术" in p.tags and "AstrBot" in p.tags, p.tags
+    assert svc.get_persona("u1").tags == p.tags
     assert svc.get_persona("u1").summary == p.summary
     print("  persona built + stored + retrievable: OK")
     try:
@@ -155,7 +158,7 @@ def test_inject_persona_block():
         def __init__(self, cfg):
             self.cfg = cfg
         def get_persona(self, actor_id):
-            return Persona(actor_id=actor_id, summary="稳定背景：喜欢推理")
+            return Persona(actor_id=actor_id, summary="稳定背景：喜欢推理", tags=["推理", "侦探"])
         def recall(self, cue):
             return _Result()
 
@@ -178,6 +181,7 @@ def test_inject_persona_block():
     asyncio.run(h.handle_inject(_Event(), req))
     assert "[用户画像]" in req.prompt, req.prompt
     assert "稳定背景：喜欢推理" in req.prompt
+    assert "标签：" in req.prompt and "推理" in req.prompt
     assert req.prompt.rstrip().endswith("原始问题")
     print("  persona block injected even with no memory hits: OK")
 

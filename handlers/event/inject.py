@@ -52,6 +52,9 @@ class InjectHandler:
                     summary = (getattr(persona, "summary", "") or "").strip() if persona else ""
                     if summary:
                         persona_block = "[用户画像]\n" + summary
+                        ptags = getattr(persona, "tags", None) if persona else None
+                        if ptags:
+                            persona_block += "\n标签：" + " / ".join(ptags)
                 except Exception as pex:
                     print("[hippocampus] persona fetch skipped: " + repr(pex))
 
