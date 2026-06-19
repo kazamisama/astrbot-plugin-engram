@@ -186,6 +186,16 @@ class MemoryService:
             session_id=session_id, actor_id=actor_id,
             platform=platform, channel_id=channel_id, content=content)
         e.embedding_model = self._current_embedding_name
+        if getattr(self.cfg, "dedup_enabled", False):
+            dup = self._find_text_duplicate(e)
+            if dup is not None:
+                dup.strength = min(1.0, dup.strength + 0.05)
+                dup.importance = min(1.0, max(dup.importance, e.importance))
+                dup.access_count = (dup.access_count or 0) + 1
+                self.working.add(dup)
+                self.store.upsert(dup)
+                self._post_ingest(dup)
+                return dup
         cands = self.working.candidates_for_separation(session_id)
         if self.cfg.enable_separation:
             action, target = self.separator.resolve(e, cands)
@@ -224,6 +234,28 @@ class MemoryService:
             self.store.upsert(e)
         self._post_ingest(e)
         return e
+
+    def _find_text_duplicate(self, e: Engram):
+        """Text-layer near-duplicate check (v1.11). Uses FTS to pull
+        cross-session candidates for the same actor, then word-level
+        Jaccard (shared tokenizer) gated at dedup_threshold. Returns the
+        existing Engram to merge into, or None. Advisory; never raises."""
+        text = (e.content or e.summary or "").strip()
+        if not text:
+            return None
+        try:
+            from .dedup import best_duplicate
+            k = int(getattr(self.cfg, "dedup_candidate_k", 10) or 10)
+            thr = float(getattr(self.cfg, "dedup_threshold", 0.9) or 0.9)
+            mode = getattr(self.cfg, "tokenizer_mode", "char")
+            hits = self.store.fts_search(
+                text, k=k, actor_id=(e.actor_id or None))
+            cands = [h for (h, _s) in hits if h.id != e.id]
+            res = best_duplicate(text, cands, mode=mode, threshold=thr)
+            return res[0] if res else None
+        except Exception as ex:
+            print("[hippocampus] dedup check error: " + repr(ex))
+            return None
 
     def _post_ingest(self, e: Engram) -> None:
         if self.semantic is not None and self.extractor is not None:

@@ -47,6 +47,10 @@ class MemoryConfig:
     rebuild_batch_size: int = 50
     # --- v1.10: configurable FTS tokenizer ---
     tokenizer_mode: str = "char"  # char | bigram | jieba
+    # --- v1.11: text-layer near-duplicate dedup (memori-inspired) ---
+    dedup_enabled: bool = False
+    dedup_threshold: float = 0.9  # Jaccard >= this => near-duplicate
+    dedup_candidate_k: int = 10   # FTS candidates to Jaccard-check
     # --- v0.9: 模式分离 (DG) ---
     enable_separation: bool = True
     separation_max_links: int = 5  # per engram,双向 similar_to 链总长度上限

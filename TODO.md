@@ -151,7 +151,7 @@
 **目标**：把 FTS 分词做成可配置 `tokenizer_mode = char(默认,现状) | bigram | jieba`。索引侧与查询侧分词保持一致；`jieba` 缺失自动降级 `bigram`，守住「零硬依赖」。切换非 char 时触发 FTS 重建（复用现有 rebuild 通路）。
 **要点**：默认 char 不动存量库；bigram=纯 Python 字符二元组，jieba=可选依赖；需迁移/重建 FTS 索引；补烟测验证三模式分词一致性。
 
-### 7.4 写入去重：词级 Jaccard（中，评估后定）
+### 7.4 写入去重：词级 Jaccard（中）— ✅ v1.11.0
 **对照**：memori `lifecycle/dedup.py` 三层去重：写入前 jieba/bigram 词级 Jaccard、写入语义去重（FTS 粗召回→Jaccard→余弦精排）、定时低阈值兜底。engram 现仅靠向量相似度 merge。
 **目标**：入库前增加文本层 Jaccard 去重作为向量 merge 的补充，减少近似重复记忆。
 **要点**：与现有 separator merge/link 协调，避免双重合并；阈值可配置；与 7.3 的分词器共用 tokenize。属结构性改动，先评估再做。

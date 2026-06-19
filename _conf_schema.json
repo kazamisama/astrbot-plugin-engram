@@ -147,6 +147,24 @@
                 ],
                 "description": "FTS 分词模式",
                 "hint": "中文关键词检索（FTS/BM25）的分词方式。char=逐字（默认，零依赖）；bigram=二元词（区分度更高，仍零依赖）；jieba=词级分词（未安装 jieba 时自动降级为 bigram）。切换后重启会自动重建 FTS 索引。"
+            },
+            "dedup_enabled": {
+                "type": "bool",
+                "default": false,
+                "description": "启用写入去重",
+                "hint": "写入前增加一道词级 Jaccard 近重复检查（补向量相似合并之不足，不依赖 embedding 质量）。命中时合并到已有记忆。默认关闭。"
+            },
+            "dedup_threshold": {
+                "type": "float",
+                "default": 0.9,
+                "description": "去重 Jaccard 阈值",
+                "hint": "词集 Jaccard 相似度 ≥ 该值才判为近重复。越高越严格，默认 0.9。"
+            },
+            "dedup_candidate_k": {
+                "type": "int",
+                "default": 10,
+                "description": "去重候选数",
+                "hint": "用 FTS 拉取多少条同用户候选做 Jaccard 比对。默认 10。"
             }
         }
     },

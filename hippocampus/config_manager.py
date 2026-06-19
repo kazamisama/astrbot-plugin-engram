@@ -66,6 +66,9 @@ _FIELDS: dict[str, _FieldSpec] = {
     "auto_rebuild_on_switch": _FieldSpec(bool, label_zh="切换 embedding 时自动重建", label_en="Auto rebuild on switch"),
     "rebuild_batch_size": _FieldSpec(int, (1, 10000), label_zh="重建批大小", label_en="Rebuild batch size"),
     "tokenizer_mode": _FieldSpec(str, choices=("char", "bigram", "jieba"), label_zh="FTS 分词模式", label_en="FTS tokenizer mode"),
+    "dedup_enabled": _FieldSpec(bool, label_zh="启用写入去重", label_en="Enable write dedup"),
+    "dedup_threshold": _FieldSpec(float, (0.0, 1.0), label_zh="去重 Jaccard 阈值", label_en="Dedup Jaccard threshold"),
+    "dedup_candidate_k": _FieldSpec(int, (1, 1000), label_zh="去重候选数", label_en="Dedup candidate k"),
     # v0.9
     "enable_separation": _FieldSpec(bool, label_zh="启用 DG 模式分离", label_en="Enable DG separation"),
     "separation_max_links": _FieldSpec(int, (0, 100), label_zh="分离链长度上限", label_en="Separation max links"),
