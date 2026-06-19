@@ -1,178 +1,189 @@
 {
-  "provider_settings": {
-    "description": "模型提供商",
-    "type": "object",
-    "hint": "Embedding 与对话模型（LLM）都直接调用 AstrBot 已配置的提供商，无需在此填写 API Key。留空则使用 AstrBot 当前默认提供商。",
-    "items": {
-      "embedding_provider_id": {
-        "type": "string",
-        "default": "",
-        "description": "Embedding 提供商 ID",
-        "hint": "填写 AstrBot 中已配置的 Embedding 提供商 ID（在 AstrBot「服务提供商」页面查看）。留空则使用 AstrBot 当前默认的 Embedding。Embedding 用于把记忆文本转成向量，做语义检索。"
-      },
-      "llm_provider_id": {
-        "type": "string",
-        "_special": "select_provider",
-        "default": "",
-        "description": "对话模型（LLM）提供商",
-        "hint": "从下拉选择 AstrBot 已配置的对话模型提供商。留空则使用 AstrBot 当前默认对话模型。此处的 LLM 仅供记忆系统内部做摘要/抽取实体（工具调用，不含人格），与机器人对外聊天用的模型相互独立。"
-      },
-      "embedding_dim": {
-        "type": "int",
-        "default": 64,
-        "description": "Embedding 向量维度",
-        "hint": "本地兜底 hash embedding 的向量维度；接入真实 Embedding 提供商后以实际模型维度为准。"
-      }
+    "provider_settings": {
+        "description": "模型提供商",
+        "type": "object",
+        "hint": "Embedding 与对话模型（LLM）都直接调用 AstrBot 已配置的提供商，无需在此填写 API Key。留空则使用 AstrBot 当前默认提供商。",
+        "items": {
+            "embedding_provider_id": {
+                "type": "string",
+                "default": "",
+                "description": "Embedding 提供商 ID",
+                "hint": "填写 AstrBot 中已配置的 Embedding 提供商 ID（在 AstrBot「服务提供商」页面查看）。留空则使用 AstrBot 当前默认的 Embedding。Embedding 用于把记忆文本转成向量，做语义检索。"
+            },
+            "llm_provider_id": {
+                "type": "string",
+                "_special": "select_provider",
+                "default": "",
+                "description": "对话模型（LLM）提供商",
+                "hint": "从下拉选择 AstrBot 已配置的对话模型提供商。留空则使用 AstrBot 当前默认对话模型。此处的 LLM 仅供记忆系统内部做摘要/抽取实体（工具调用，不含人格），与机器人对外聊天用的模型相互独立。"
+            },
+            "embedding_dim": {
+                "type": "int",
+                "default": 64,
+                "description": "Embedding 向量维度",
+                "hint": "本地兜底 hash embedding 的向量维度；接入真实 Embedding 提供商后以实际模型维度为准。"
+            }
+        }
+    },
+    "storage_settings": {
+        "description": "存储与语言",
+        "type": "object",
+        "items": {
+            "bot_language": {
+                "type": "string",
+                "default": "zh",
+                "description": "机器人回复语言",
+                "hint": "zh（中文）或 en（英文）。暂不支持热重载，修改后需重载插件生效。"
+            },
+            "sqlite_path": {
+                "type": "string",
+                "default": "data/hippocampus.db",
+                "description": "SQLite 数据库路径",
+                "hint": "记忆数据的本地存储文件路径，相对插件数据目录。"
+            }
+        }
+    },
+    "memory_settings": {
+        "description": "记忆行为",
+        "type": "object",
+        "items": {
+            "enable_semantic": {
+                "type": "bool",
+                "default": true,
+                "description": "启用语义记忆（实体抽取）",
+                "hint": "从对话中抽取实体并构建语义网络。"
+            },
+            "enable_prospective": {
+                "type": "bool",
+                "default": true,
+                "description": "启用前瞻记忆（待办触发）",
+                "hint": "记录并在条件满足时触发未来意图 / 提醒。"
+            },
+            "enable_promotion": {
+                "type": "bool",
+                "default": true,
+                "description": "启用记忆晋升",
+                "hint": "将高价值的情景记忆晋升为长期记忆。"
+            },
+            "metamemory_enabled": {
+                "type": "bool",
+                "default": true,
+                "description": "启用元记忆",
+                "hint": "追踪记忆的置信度与来源等元信息。"
+            },
+            "enable_episodic_semantic": {
+                "type": "bool",
+                "default": true,
+                "description": "启用情景到语义的固化",
+                "hint": "重放时将情景记忆固化为语义知识。"
+            },
+            "auto_inject_enabled": {
+                "type": "bool",
+                "default": false,
+                "description": "启用记忆自动注入",
+                "hint": "开启后，在每次调用对话模型前自动检索相关长期记忆，并拼接进发送给 LLM 的用户消息中（无需 LLM 主动调用工具）。默认关闭，保持原有「按需工具调用」行为。"
+            },
+            "auto_inject_top_k": {
+                "type": "int",
+                "default": 3,
+                "description": "自动注入条数",
+                "hint": "每次自动注入最多拼接多少条记忆摘要。数值越大占用上下文 token 越多，建议 1-5。"
+            },
+            "auto_inject_position": {
+                "type": "string",
+                "default": "before",
+                "description": "自动注入位置",
+                "hint": "before=把记忆拼在用户消息之前，after=拼在之后。默认 before。"
+            },
+            "session_aggregate_enabled": {
+                "type": "bool",
+                "default": false,
+                "description": "启用会话聚合",
+                "hint": "开启后，同一频道内同一发言人的连续消息会先缓冲，攒够若干条或静默超时后合并成一条记忆再入库（而非逐条入库）。按发言人分桶，群聊里不同人不会被错误合并。默认关闭，保持逐条入库行为。"
+            },
+            "session_aggregate_max_messages": {
+                "type": "int",
+                "default": 5,
+                "description": "会话聚合最大条数",
+                "hint": "同一发言人缓冲达到这么多条消息时立即合并入库。"
+            },
+            "session_aggregate_idle_seconds": {
+                "type": "float",
+                "default": 120.0,
+                "description": "会话聚合静默秒数",
+                "hint": "发言人停顿超过这么多秒后，其缓冲会在下次有任意消息到达时结算入库。0 表示不按静默触发（仅靠条数）。"
+            },
+            "session_aggregate_min_chars": {
+                "type": "int",
+                "default": 2,
+                "description": "会话聚合最小字数",
+                "hint": "质量门：短于此长度的消息（去空白后）会被丢弃，不进入缓冲。"
+            },
+            "enable_persona": {
+                "type": "bool",
+                "default": false,
+                "description": "启用用户画像",
+                "hint": "开启后可用 /mem persona 为某个用户生成一段自然语言画像（基于其历史消息由 LLM 总结），与结构化用户事实互补。默认关闭。"
+            },
+            "persona_inject_enabled": {
+                "type": "bool",
+                "default": false,
+                "description": "启用画像注入",
+                "hint": "开启后（且记忆自动注入已开），调用对话模型前会把该用户的画像作为稳定背景拼进上下文。默认关闭。"
+            },
+            "persona_max_source": {
+                "type": "int",
+                "default": 20,
+                "description": "画像取样条数",
+                "hint": "生成画像时，最多取该用户最近多少条记忆作为输入。"
+            },
+            "tokenizer_mode": {
+                "type": "string",
+                "default": "char",
+                "options": [
+                    "char",
+                    "bigram",
+                    "jieba"
+                ],
+                "description": "FTS 分词模式",
+                "hint": "中文关键词检索（FTS/BM25）的分词方式。char=逐字（默认，零依赖）；bigram=二元词（区分度更高，仍零依赖）；jieba=词级分词（未安装 jieba 时自动降级为 bigram）。切换后重启会自动重建 FTS 索引。"
+            }
+        }
+    },
+    "backup_settings": {
+        "description": "备份",
+        "type": "object",
+        "items": {
+            "enable_backup": {
+                "type": "bool",
+                "default": true,
+                "description": "启用自动定期备份",
+                "hint": "周期性地备份 .db 数据库文件。"
+            },
+            "backup_interval_hours": {
+                "type": "float",
+                "default": 24.0,
+                "description": "备份间隔（小时）",
+                "hint": "0 表示禁用自动备份。"
+            },
+            "backup_keep_last": {
+                "type": "int",
+                "default": 7,
+                "description": "保留最近备份数",
+                "hint": "保留最近的 N 个备份。"
+            },
+            "backup_keep_weekly": {
+                "type": "int",
+                "default": 1,
+                "description": "保留周备份数",
+                "hint": "在 keep_last 之外，每约 7 天保留一个备份。"
+            },
+            "backup_keep_monthly": {
+                "type": "int",
+                "default": 1,
+                "description": "保留月备份数",
+                "hint": "在周备份之外，每约 30 天保留一个备份。"
+            }
+        }
     }
-  },
-  "storage_settings": {
-    "description": "存储与语言",
-    "type": "object",
-    "items": {
-      "bot_language": {
-        "type": "string",
-        "default": "zh",
-        "description": "机器人回复语言",
-        "hint": "zh（中文）或 en（英文）。暂不支持热重载，修改后需重载插件生效。"
-      },
-      "sqlite_path": {
-        "type": "string",
-        "default": "data/hippocampus.db",
-        "description": "SQLite 数据库路径",
-        "hint": "记忆数据的本地存储文件路径，相对插件数据目录。"
-      }
-    }
-  },
-  "memory_settings": {
-    "description": "记忆行为",
-    "type": "object",
-    "items": {
-      "enable_semantic": {
-        "type": "bool",
-        "default": true,
-        "description": "启用语义记忆（实体抽取）",
-        "hint": "从对话中抽取实体并构建语义网络。"
-      },
-      "enable_prospective": {
-        "type": "bool",
-        "default": true,
-        "description": "启用前瞻记忆（待办触发）",
-        "hint": "记录并在条件满足时触发未来意图 / 提醒。"
-      },
-      "enable_promotion": {
-        "type": "bool",
-        "default": true,
-        "description": "启用记忆晋升",
-        "hint": "将高价值的情景记忆晋升为长期记忆。"
-      },
-      "metamemory_enabled": {
-        "type": "bool",
-        "default": true,
-        "description": "启用元记忆",
-        "hint": "追踪记忆的置信度与来源等元信息。"
-      },
-      "enable_episodic_semantic": {
-        "type": "bool",
-        "default": true,
-        "description": "启用情景到语义的固化",
-        "hint": "重放时将情景记忆固化为语义知识。"
-      },
-      "auto_inject_enabled": {
-        "type": "bool",
-        "default": false,
-        "description": "启用记忆自动注入",
-        "hint": "开启后，在每次调用对话模型前自动检索相关长期记忆，并拼接进发送给 LLM 的用户消息中（无需 LLM 主动调用工具）。默认关闭，保持原有「按需工具调用」行为。"
-      },
-      "auto_inject_top_k": {
-        "type": "int",
-        "default": 3,
-        "description": "自动注入条数",
-        "hint": "每次自动注入最多拼接多少条记忆摘要。数值越大占用上下文 token 越多，建议 1-5。"
-      },
-      "auto_inject_position": {
-        "type": "string",
-        "default": "before",
-        "description": "自动注入位置",
-        "hint": "before=把记忆拼在用户消息之前，after=拼在之后。默认 before。"
-      },
-      "session_aggregate_enabled": {
-        "type": "bool",
-        "default": false,
-        "description": "启用会话聚合",
-        "hint": "开启后，同一频道内同一发言人的连续消息会先缓冲，攒够若干条或静默超时后合并成一条记忆再入库（而非逐条入库）。按发言人分桶，群聊里不同人不会被错误合并。默认关闭，保持逐条入库行为。"
-      },
-      "session_aggregate_max_messages": {
-        "type": "int",
-        "default": 5,
-        "description": "会话聚合最大条数",
-        "hint": "同一发言人缓冲达到这么多条消息时立即合并入库。"
-      },
-      "session_aggregate_idle_seconds": {
-        "type": "float",
-        "default": 120.0,
-        "description": "会话聚合静默秒数",
-        "hint": "发言人停顿超过这么多秒后，其缓冲会在下次有任意消息到达时结算入库。0 表示不按静默触发（仅靠条数）。"
-      },
-      "session_aggregate_min_chars": {
-        "type": "int",
-        "default": 2,
-        "description": "会话聚合最小字数",
-        "hint": "质量门：短于此长度的消息（去空白后）会被丢弃，不进入缓冲。"
-      },
-      "enable_persona": {
-        "type": "bool",
-        "default": false,
-        "description": "启用用户画像",
-        "hint": "开启后可用 /mem persona 为某个用户生成一段自然语言画像（基于其历史消息由 LLM 总结），与结构化用户事实互补。默认关闭。"
-      },
-      "persona_inject_enabled": {
-        "type": "bool",
-        "default": false,
-        "description": "启用画像注入",
-        "hint": "开启后（且记忆自动注入已开），调用对话模型前会把该用户的画像作为稳定背景拼进上下文。默认关闭。"
-      },
-      "persona_max_source": {
-        "type": "int",
-        "default": 20,
-        "description": "画像取样条数",
-        "hint": "生成画像时，最多取该用户最近多少条记忆作为输入。"
-      }
-    }
-  },
-  "backup_settings": {
-    "description": "备份",
-    "type": "object",
-    "items": {
-      "enable_backup": {
-        "type": "bool",
-        "default": true,
-        "description": "启用自动定期备份",
-        "hint": "周期性地备份 .db 数据库文件。"
-      },
-      "backup_interval_hours": {
-        "type": "float",
-        "default": 24.0,
-        "description": "备份间隔（小时）",
-        "hint": "0 表示禁用自动备份。"
-      },
-      "backup_keep_last": {
-        "type": "int",
-        "default": 7,
-        "description": "保留最近备份数",
-        "hint": "保留最近的 N 个备份。"
-      },
-      "backup_keep_weekly": {
-        "type": "int",
-        "default": 1,
-        "description": "保留周备份数",
-        "hint": "在 keep_last 之外，每约 7 天保留一个备份。"
-      },
-      "backup_keep_monthly": {
-        "type": "int",
-        "default": 1,
-        "description": "保留月备份数",
-        "hint": "在周备份之外，每约 30 天保留一个备份。"
-      }
-    }
-  }
 }

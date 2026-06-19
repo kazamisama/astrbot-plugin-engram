@@ -45,6 +45,8 @@ class MemoryConfig:
     llm_provider_id: str = ""
     auto_rebuild_on_switch: bool = True
     rebuild_batch_size: int = 50
+    # --- v1.10: configurable FTS tokenizer ---
+    tokenizer_mode: str = "char"  # char | bigram | jieba
     # --- v0.9: 模式分离 (DG) ---
     enable_separation: bool = True
     separation_max_links: int = 5  # per engram,双向 similar_to 链总长度上限

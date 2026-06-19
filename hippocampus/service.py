@@ -45,7 +45,9 @@ class MemoryService:
         self.llm: LLMProvider = self.registry.get_llm(self.cfg.llm_name)
         self._current_embedding_name = self.cfg.embedding_name
         self._current_llm_name = self.cfg.llm_name
-        self.store = HippocampalStore(self.cfg.sqlite_path, self.embedder)
+        self.store = HippocampalStore(
+            self.cfg.sqlite_path, self.embedder,
+            tokenizer_mode=getattr(self.cfg, "tokenizer_mode", "char"))
         self.encoder = EngramEncoder(self.embedder, llm=self.llm, cfg=self.cfg)
         self.separator = PatternSeparator(self.cfg)
         self.working = WorkingMemory(self.cfg)

@@ -43,15 +43,19 @@ def cjk_split(text: str) -> str:
 
 class HippocampalStore:
     """Index + content + vectors + FTS5 in one SQLite file. Replace with sqlite-vec/faiss at scale."""
-    def __init__(self, db_path: str, embedder: EmbeddingProvider) -> None:
+    def __init__(self, db_path: str, embedder: EmbeddingProvider,
+                 tokenizer_mode: str = "char") -> None:
         self._db_path = db_path
         self._embedder = embedder
+        from .tokenizer import normalize_mode
+        self._tokenizer_mode = normalize_mode(tokenizer_mode)
         self._lock = threading.RLock()
         self._conn = sqlite3.connect(db_path, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         from .sqlite_util import apply_pragmas
         apply_pragmas(self._conn)
         self._init_schema()
+        self._sync_tokenizer_mode()
 
     def _init_schema(self) -> None:
         with self._lock, self._conn:
@@ -134,11 +138,73 @@ class HippocampalStore:
               processed INTEGER DEFAULT 0,
               updated_at REAL DEFAULT 0.0
             );
+
+            -- v1.10: small key/value meta (e.g. active tokenizer mode)
+            CREATE TABLE IF NOT EXISTS hippo_meta (
+              key TEXT PRIMARY KEY,
+              value TEXT
+            );
             """)
         # B10: column-append migrations extracted to hippocampus.db_migration
         ran = run_migrations(self._conn, self._lock)
         for v in ran:
             print("[hippocampus] applied compat migration: " + v)
+
+    def _meta_get(self, key: str):
+        try:
+            cur = self._conn.execute(
+                "SELECT value FROM hippo_meta WHERE key=?", (key,))
+            row = cur.fetchone()
+            return row["value"] if row else None
+        except sqlite3.OperationalError:
+            return None
+
+    def _meta_set(self, key: str, value: str) -> None:
+        with self._lock, self._conn:
+            self._conn.execute(
+                "INSERT INTO hippo_meta(key, value) VALUES(?, ?) "
+                "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                (key, value))
+
+    def _sync_tokenizer_mode(self) -> None:
+        """If the persisted tokenizer mode differs from the requested one,
+        re-tokenize every row''s fts_text so the index matches the new mode,
+        then persist it. No-op when unchanged (cheap startup path)."""
+        prev = self._meta_get("tokenizer_mode")
+        if prev == self._tokenizer_mode:
+            return
+        if prev is not None:
+            self.reindex_fts()
+        self._meta_set("tokenizer_mode", self._tokenizer_mode)
+
+    def reindex_fts(self) -> int:
+        """Rebuild fts_text for all engrams under the current tokenizer
+        mode. The UPDATE triggers keep engrams_fts in sync. Returns the
+        number of rows reindexed."""
+        with self._lock, self._conn:
+            rows = self._conn.execute(
+                "SELECT rowid, content, summary, topics, entities, tags "
+                "FROM engrams").fetchall()
+            n = 0
+            for r in rows:
+                parts = [r["content"] or "", r["summary"] or ""]
+                for col in ("topics", "entities", "tags"):
+                    raw = r[col]
+                    if raw:
+                        try:
+                            vals = json.loads(raw)
+                            if isinstance(vals, list):
+                                parts.append(" ".join(str(v) for v in vals))
+                        except Exception:
+                            pass
+                from .tokenizer import tokenize
+                fts = tokenize(" ".join(p for p in parts if p),
+                               self._tokenizer_mode)
+                self._conn.execute(
+                    "UPDATE engrams SET fts_text=? WHERE rowid=?",
+                    (fts, r["rowid"]))
+                n += 1
+        return n
 
 
 
@@ -149,7 +215,8 @@ class HippocampalStore:
                  " ".join(e.topics or []),
                  " ".join(e.entities or []),
                  " ".join(e.tags or [])]
-        return cjk_split(" ".join(p for p in parts if p))
+        from .tokenizer import tokenize
+        return tokenize(" ".join(p for p in parts if p), self._tokenizer_mode)
 
     def upsert(self, e: Engram) -> None:
         e.fts_text = self._build_fts_text(e)
@@ -399,16 +466,22 @@ class HippocampalStore:
             out.append((e, sim))
         return out[:k]
 
-    @staticmethod
-    def _sanitize_fts_query(q: str) -> str:
-        """Drop FTS5 operators/special chars, CJK-split, AND-join tokens."""
+    def _sanitize_fts_query(self, q: str) -> str:
+        """Drop FTS5 operators/special chars, tokenize per mode, join tokens.
+
+        char mode AND-joins (each single char must match). bigram/jieba
+        modes OR-join, because requiring every bigram/word to co-occur is
+        too strict and tanks recall; OR keeps BM25 ranking meaningful."""
         if not q: return ""
         for ch in (chr(34), "(", ")", ":", "*", "+", "-", "^", "."):
             q = q.replace(ch, " ")
-        q = cjk_split(q)
+        from .tokenizer import tokenize
+        mode = getattr(self, "_tokenizer_mode", "char")
+        q = tokenize(q, mode)
         toks = [t for t in q.split() if t]
         if not toks: return ""
-        return " AND ".join(toks)
+        joiner = " AND " if mode == "char" else " OR "
+        return joiner.join(toks)
 
     def fts_count(self) -> int:
         with self._lock, self._conn:

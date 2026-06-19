@@ -22,6 +22,7 @@ class _FieldSpec:
     """Per-field metadata for validation + i18n."""
     py_type: type  # int | float | bool | str | list | dict
     range: tuple[float, float] | None = None  # (min, max) for numeric
+    choices: tuple | None = None  # allowed values for str enums
     label_zh: str = ""
     label_en: str = ""
 
@@ -64,6 +65,7 @@ _FIELDS: dict[str, _FieldSpec] = {
     "llm_provider_id": _FieldSpec(str, label_zh="AstrBot LLM Provider ID", label_en="AstrBot LLM provider id"),
     "auto_rebuild_on_switch": _FieldSpec(bool, label_zh="切换 embedding 时自动重建", label_en="Auto rebuild on switch"),
     "rebuild_batch_size": _FieldSpec(int, (1, 10000), label_zh="重建批大小", label_en="Rebuild batch size"),
+    "tokenizer_mode": _FieldSpec(str, choices=("char", "bigram", "jieba"), label_zh="FTS 分词模式", label_en="FTS tokenizer mode"),
     # v0.9
     "enable_separation": _FieldSpec(bool, label_zh="启用 DG 模式分离", label_en="Enable DG separation"),
     "separation_max_links": _FieldSpec(int, (0, 100), label_zh="分离链长度上限", label_en="Separation max links"),
@@ -257,6 +259,11 @@ class ConfigManager:
                 print(f"[hippocampus] config field {fname!r} value {coerced!r} "
                       f"out of range [{lo}, {hi}], using default {default!r}")
                 return default
+        # Choices check (str enums)
+        if spec.choices is not None and coerced not in spec.choices:
+            print(f"[hippocampus] config field {fname!r} value {coerced!r} "
+                  f"not in choices {spec.choices}, using default {default!r}")
+            return default
         return coerced
 
     @property
