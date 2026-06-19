@@ -5,19 +5,52 @@ from astrbot.api.event import AstrMessageEvent
 from hippocampus import EXPORT_FORMAT_VERSION, __version__ as HIPPO_VERSION, Cue
 if TYPE_CHECKING:
     from hippocampus import MemoryService
+def _call(obj, name, default=None):
+    """Call a 0-arg getter method if present, else return default."""
+    fn = getattr(obj, name, None)
+    if callable(fn):
+        try:
+            v = fn()
+            return v if v not in (None, "") else default
+        except Exception:
+            return default
+    return default
+
+
 def _extract(event: AstrMessageEvent) -> dict:
-    pm = getattr(event, "platform_meta", None) or {}
-    sender = getattr(event, "sender", None)
+    """Pull observation fields off a real AstrBot AstrMessageEvent.
+
+    Uses the official getters / attributes (AstrBot
+    core/platform/astr_message_event.py):
+      - unified_msg_origin            -> session id (platform:type:sid)
+      - get_sender_id()               -> actor id (message_obj.sender)
+      - get_platform_name()           -> platform
+      - get_group_id()                -> channel/group ("" in DM)
+      - message_str / get_message_str -> text content
+    Each lookup falls back to a sane default so a non-standard event
+    (or a unit-test mock) never crashes the hook.
+    """
+    session_id = (getattr(event, "unified_msg_origin", None)
+                  or _call(event, "get_session_id")
+                  or getattr(event, "session_id", None)
+                  or getattr(event, "message_id", "default"))
+    actor_id = (_call(event, "get_sender_id")
+                or getattr(getattr(event, "sender", None), "user_id", None)
+                or "anonymous")
+    platform = (_call(event, "get_platform_name")
+                or getattr(getattr(event, "platform_meta", None), "name", None)
+                or "unknown")
+    channel_id = _call(event, "get_group_id", "") or "default"
+    content = (getattr(event, "message_str", None)
+               or _call(event, "get_message_str")
+               or "")
     return {
-        "session_id": getattr(event, "session_id", None)
-                       or getattr(event, "message_id", "default"),
-        "actor_id": getattr(sender, "user_id", None) or "anonymous",
-        "platform": getattr(pm, "platform", "unknown"),
-        "channel_id": getattr(pm, "channel_id", None) or "default",
-        "content": getattr(event, "message_str", "") or "",
+        "session_id": session_id,
+        "actor_id": actor_id,
+        "platform": platform,
+        "channel_id": channel_id,
+        "content": content,
     }
-
-
 
 
 def banner_text(service):
