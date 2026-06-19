@@ -65,6 +65,63 @@
   function emptyBox(msg) { return '<div class="empty">' + escapeHtml(msg) + "</div>"; }
   function errBox(msg) { return '<div class="err-box">' + escapeHtml(msg) + "</div>"; }
 
+  // ---------- 字段中文映射 ----------
+  var FIELD_LABELS = {
+    id: "记忆 ID",
+    summary: "摘要",
+    content: "原文内容",
+    actor_id: "用户标识",
+    stream: "记忆流",
+    memory_type: "记忆类型",
+    strength: "记忆强度",
+    importance: "重要度",
+    confidence: "置信度",
+    created_at: "创建时间",
+    updated_at: "更新时间",
+    forgotten_at: "遗忘时间",
+    entity_refs: "关联实体",
+    cluster_id: "聚类 ID",
+    valence: "情绪价",
+    intensity: "情绪强度",
+    score: "相关度",
+    similarity: "相似度",
+    returned: "本页条数",
+    offset: "偏移量",
+    k: "请求条数",
+    mode: "模式"
+  };
+  function fieldLabel(k) { return FIELD_LABELS[k] || k; }
+
+  var STREAM_LABELS = { what: "内容流（是什么）", where_when: "时空流（何时何地）", "": "未分类" };
+  var MEMTYPE_LABELS = { episodic: "情景记忆", semantic: "语义记忆", prospective: "前瞻记忆" };
+  function fieldValueText(k, v) {
+    if (v === null || v === undefined || v === "") return "—";
+    if (k === "stream") return STREAM_LABELS[v] || v;
+    if (k === "memory_type") return MEMTYPE_LABELS[v] || v;
+    if (k === "created_at" || k === "updated_at" || k === "forgotten_at") {
+      return fmtTime(v);
+    }
+    if (typeof v === "number") {
+      // 概率类字段保留 3 位小数，其余原样
+      if (k === "strength" || k === "importance" || k === "confidence" ||
+          k === "valence" || k === "intensity" || k === "score" || k === "similarity") {
+        return Number(v).toFixed(3);
+      }
+      return String(v);
+    }
+    return null; // 交给上层判断对象/原样
+  }
+  function fmtTime(v) {
+    var n = Number(v);
+    if (!n) return String(v);
+    // 秒级或毫秒级时间戳
+    var ms = n < 1e12 ? n * 1000 : n;
+    var d = new Date(ms);
+    if (isNaN(d.getTime())) return String(v);
+    function pad(x) { return x < 10 ? "0" + x : x; }
+    return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) +
+      " " + pad(d.getHours()) + ":" + pad(d.getMinutes());
+  }
   // ---------- tabs ----------
   document.querySelectorAll(".tab").forEach(function (tab) {
     tab.addEventListener("click", function () {
@@ -144,7 +201,8 @@
         div.className = "mem-item";
         var head = '<div class="mem-head">' +
           '<span class="chip">#' + escapeHtml(it.id == null ? "?" : it.id) + "</span>" +
-          (it.actor_id ? '<span class="chip chip-muted">' + escapeHtml(it.actor_id) + "</span>" : "") +
+          (it.actor_id ? '<span class="chip chip-muted">用户 ' + escapeHtml(it.actor_id) + "</span>" : "") +
+          (it.strength != null ? '<span class="chip chip-muted">强度 ' + Number(it.strength).toFixed(2) + "</span>" : "") +
           "</div>";
         div.innerHTML = head + '<div class="mem-summary">' +
           escapeHtml(it.summary || "（无摘要）") + "</div>";
@@ -161,8 +219,15 @@
     Object.keys(obj).forEach(function (k) {
       var v = obj[k];
       var isObj = v !== null && typeof v === "object";
-      var text = isObj ? JSON.stringify(v, null, 2) : String(v);
-      html += '<div class="kv-row"><div class="kv-k">' + escapeHtml(k) + "</div>" +
+      var text;
+      if (isObj) {
+        if (Array.isArray(v)) { text = v.length ? v.join("、") : "—"; isObj = v.length > 0 && typeof v[0] === "object"; if (isObj) text = JSON.stringify(v, null, 2); }
+        else { text = JSON.stringify(v, null, 2); }
+      } else {
+        var fv = fieldValueText(k, v);
+        text = (fv === null) ? String(v) : fv;
+      }
+      html += '<div class="kv-row"><div class="kv-k">' + escapeHtml(fieldLabel(k)) + "</div>" +
         '<div class="kv-v' + (isObj ? " mono" : "") + '">' + escapeHtml(text) + "</div></div>";
     });
     return html + "</div>";
