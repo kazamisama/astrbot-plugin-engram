@@ -179,7 +179,7 @@ v1.0 上了一整套海马体环路:
 
 ## 升级核心包
 
-本目录的 `hippocampus/` 是发布时的快照。如要同步上游改进,直接 `Copy-Item -Recurse ../hippocampus ./hippocampus` 覆盖(注意:先备份,再覆盖)。
+本目录的 `hippocampus/` 就是核心包本体(已随插件自包含)。直接修改本目录下的 `hippocampus/` 即可,无需从其它位置覆盖。
 
 ## v1.1 联想激活网络 + 自我模型 + 心境一致性 + 聚类摘要
 
