@@ -7,7 +7,30 @@
 (function () {
   "use strict";
 
-  var bridge = window.AstrBotPluginPage;
+  // Do NOT cache the bridge at parse time: AstrBot injects the
+  // bridge-sdk <script> right before </body>, i.e. AFTER this file
+  // runs, so window.AstrBotPluginPage is still undefined here. Read
+  // it lazily on every use and wait for it during init().
+  function getBridge() {
+    return window.AstrBotPluginPage || null;
+  }
+
+  function waitForBridge(timeoutMs) {
+    return new Promise(function (resolve) {
+      var b = getBridge();
+      if (b) { resolve(b); return; }
+      var waited = 0;
+      var step = 50;
+      var timer = setInterval(function () {
+        var bb = getBridge();
+        if (bb || waited >= timeoutMs) {
+          clearInterval(timer);
+          resolve(bb || null);
+        }
+        waited += step;
+      }, step);
+    });
+  }
 
   function toast(msg) {
     var el = document.getElementById("toast");
@@ -22,12 +45,14 @@
   }
 
   async function apiGet(path, params) {
-    if (!bridge) throw new Error("AstrBot 插件桥不可用，请在 AstrBot 后台打开本页面。");
-    return bridge.apiGet(endpoint(path), params || {});
+    var b = getBridge();
+    if (!b) throw new Error("AstrBot 插件桥不可用，请在 AstrBot 后台打开本页面。");
+    return b.apiGet(endpoint(path), params || {});
   }
   async function apiPost(path, body) {
-    if (!bridge) throw new Error("AstrBot 插件桥不可用，请在 AstrBot 后台打开本页面。");
-    return bridge.apiPost(endpoint(path), body || {});
+    var b = getBridge();
+    if (!b) throw new Error("AstrBot 插件桥不可用，请在 AstrBot 后台打开本页面。");
+    return b.apiPost(endpoint(path), body || {});
   }
 
   function unwrap(resp) {
@@ -190,8 +215,9 @@
   document.getElementById("btn-load-backups").addEventListener("click", loadBackups);
 
   async function init() {
-    if (bridge && bridge.ready) {
-      try { await bridge.ready(); } catch (e) { /* non-fatal */ }
+    var b = await waitForBridge(8000);
+    if (b && b.ready) {
+      try { await b.ready(); } catch (e) { /* non-fatal */ }
     }
     await loadHealth();
     await loadStats();
