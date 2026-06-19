@@ -112,3 +112,8 @@ class MemoryConfig:
     auto_inject_enabled: bool = False
     auto_inject_top_k: int = 3
     auto_inject_position: str = "before"
+    # --- v1.6: per-speaker conversation aggregation (optional) ---
+    session_aggregate_enabled: bool = False
+    session_aggregate_max_messages: int = 5
+    session_aggregate_idle_seconds: float = 120.0
+    session_aggregate_min_chars: int = 2

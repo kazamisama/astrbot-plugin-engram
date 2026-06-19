@@ -94,6 +94,30 @@
         "default": "before",
         "description": "自动注入位置",
         "hint": "before=把记忆拼在用户消息之前，after=拼在之后。默认 before。"
+      },
+      "session_aggregate_enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "启用会话聚合",
+        "hint": "开启后，同一频道内同一发言人的连续消息会先缓冲，攒够若干条或静默超时后合并成一条记忆再入库（而非逐条入库）。按发言人分桶，群聊里不同人不会被错误合并。默认关闭，保持逐条入库行为。"
+      },
+      "session_aggregate_max_messages": {
+        "type": "int",
+        "default": 5,
+        "description": "会话聚合最大条数",
+        "hint": "同一发言人缓冲达到这么多条消息时立即合并入库。"
+      },
+      "session_aggregate_idle_seconds": {
+        "type": "float",
+        "default": 120.0,
+        "description": "会话聚合静默秒数",
+        "hint": "发言人停顿超过这么多秒后，其缓冲会在下次有任意消息到达时结算入库。0 表示不按静默触发（仅靠条数）。"
+      },
+      "session_aggregate_min_chars": {
+        "type": "int",
+        "default": 2,
+        "description": "会话聚合最小字数",
+        "hint": "质量门：短于此长度的消息（去空白后）会被丢弃，不进入缓冲。"
       }
     }
   },

@@ -305,6 +305,15 @@ class HippocampusStar(Star):
 
     # ---------- lifecycle ----------
     async def terminate(self):
+        # Drain any buffered session-aggregate bursts before shutdown so
+        # the last in-memory batch is not lost. No-op when aggregation is
+        # disabled (the aggregator was never built).
+        try:
+            agg = getattr(self._observer, "_aggregator", None)
+            if agg is not None:
+                agg.flush_all()
+        except Exception as e:
+            print(f"[hippocampus] terminate flush error: {e!r}")
         if self.service is not None:
             try:
                 await self.service.stop()

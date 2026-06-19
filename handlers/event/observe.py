@@ -50,6 +50,17 @@ class ObserveHandler:
 
     def __init__(self, service: "MemoryService | None") -> None:
         self.service = service
+        self._aggregator = None
+
+    def _get_aggregator(self):
+        """Lazily build a SessionAggregator bound to this service.
+        The sink forwards merged meta dicts straight to observe()."""
+        if self._aggregator is None:
+            from hippocampus.session_buffer import SessionAggregator
+            self._aggregator = SessionAggregator(
+                self.service.cfg,
+                lambda meta: self.service.observe(**meta))
+        return self._aggregator
 
     async def handle_message(self, event) -> None:
         if self.service is None:
@@ -61,7 +72,12 @@ class ObserveHandler:
             # Bot-internal cron/wake event from another plugin - skip.
             return
         try:
-            self.service.observe(**meta)
+            cfg = getattr(self.service, "cfg", None)
+            if cfg is not None and getattr(
+                    cfg, "session_aggregate_enabled", False):
+                self._get_aggregator().feed(meta)
+            else:
+                self.service.observe(**meta)
         except Exception as e:
             # Match prior main.py behavior: log to stdout, never raise
             # out of an event hook (would poison the AstrBot pipeline).

@@ -113,6 +113,11 @@ _FIELDS: dict[str, _FieldSpec] = {
     "auto_inject_enabled": _FieldSpec(bool, label_zh="启用记忆自动注入", label_en="Auto inject enabled"),
     "auto_inject_top_k": _FieldSpec(int, (0, 50), label_zh="自动注入条数", label_en="Auto inject top k"),
     "auto_inject_position": _FieldSpec(str, label_zh="自动注入位置", label_en="Auto inject position"),
+    # v1.6 session aggregation
+    "session_aggregate_enabled": _FieldSpec(bool, label_zh="启用会话聚合", label_en="Session aggregate enabled"),
+    "session_aggregate_max_messages": _FieldSpec(int, (1, 100), label_zh="会话聚合最大条数", label_en="Session aggregate max messages"),
+    "session_aggregate_idle_seconds": _FieldSpec(float, (0.0, 86400.0), label_zh="会话聚合静默秒数", label_en="Session aggregate idle seconds"),
+    "session_aggregate_min_chars": _FieldSpec(int, (1, 1000), label_zh="会话聚合最小字数", label_en="Session aggregate min chars"),
 }
 
 # Public i18n label dict: field name -> {zh, en}. Stable API for B8
