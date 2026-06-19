@@ -14,14 +14,16 @@
   "embedding_provider_id": {
     "type": "string",
     "default": "",
-    "description": "AstrBot Embedding Provider ID",
-    "hint": "留空则使用 AstrBot 当前默认的 Embedding 提供商。可在 AstrBot 后台「服务提供商」页查看 Provider ID。仅在 embedding 选 astrmock 时生效。"
+    "description": "Embedding 提供商",
+    "hint": "从下拉选择 AstrBot 已配置的 Embedding 提供商，无需手填 ID。留空则使用 AstrBot 当前默认的 Embedding。仅在下方「Embedding 提供商来源」选 astrmock 时生效。",
+    "_special": "select_provider_embedding"
   },
   "llm_provider_id": {
     "type": "string",
     "default": "",
-    "description": "AstrBot LLM Provider ID",
-    "hint": "留空则使用 AstrBot 当前默认的对话模型。可在 AstrBot 后台「服务提供商」页查看 Provider ID。仅在 LLM 选 astrmock 时生效。"
+    "description": "对话模型（LLM）提供商",
+    "hint": "从下拉选择 AstrBot 已配置的对话模型提供商，无需手填 ID。留空则使用 AstrBot 当前默认的对话模型。仅在下方「LLM 提供商来源」选 astrmock 时生效。",
+    "_special": "select_provider"
   },
   "embedding_name": {
     "type": "string",
