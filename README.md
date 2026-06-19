@@ -11,17 +11,17 @@
 
 | 名字 | 指什么 | 出现位置 |
 | --- | --- | --- |
-| `astrbot-plugin-engram` | **仓库名 + 插件 ID + 部署目录名**(三者统一) | GitHub 仓库、README 标题、`metadata.yaml` 的 `name`、`data/plugins/` 下的目录 |
+| `astrbot-plugin-engram` | **仓库名 + 插件 ID + 部署目录名**(三者统一) | GitHub 仓库、README 标题、`metadata.yaml` 的 `name`(模块名要求下划线 `astrbot_plugin_engram`)、`data/plugins/` 下的目录 |
 | `hippocampus`(海马体) | 内嵌的**核心包名** | `hippocampus/` 目录、`from hippocampus import ...` |
 | `engram`(记忆痕迹) | 框架里**单条记忆**的领域术语 | 命令文案、导出 JSON 字段、banner 统计 |
 
-简单说:`hippocampus` 是"系统/包",`engram` 是"系统里的一条记忆"——两者是**整体与单元**的关系,不是同义词。对外品牌(仓库名 / 插件 ID / Web 路由前缀 `/astrbot-plugin-engram/page`)统一为 `engram`;内嵌核心包仍叫 `hippocampus`,`import` 路径与神经科学命名不变。
+简单说:`hippocampus` 是"系统/包",`engram` 是"系统里的一条记忆"——两者是**整体与单元**的关系,不是同义词。对外品牌(仓库名 / 插件 ID / Web 路由前缀 `/astrbot_plugin_engram/page`)统一为 `engram`;内嵌核心包仍叫 `hippocampus`,`import` 路径与神经科学命名不变。
 
 ## 目录
 
 ```
 astrbot-plugin-engram/     # 仓库根即插件目录(扁平布局)
-  metadata.yaml          # AstrBot 插件元数据(name: astrbot-plugin-engram)
+  metadata.yaml          # AstrBot 插件元数据(name: astrbot_plugin_engram)
   _conf_schema.json      # 配置 schema(给 AstrBot 配置 UI 用)
   requirements.txt       # 零依赖
   main.py                # 插件入口(直接 import astrbot)
