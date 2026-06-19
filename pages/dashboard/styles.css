@@ -200,12 +200,4 @@ body {
   position: relative; height: 460px; background: var(--bg-card);
   border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden;
 }
-.graph-stage svg { width: 100%; height: 100%; display: block; cursor: grab; }
-.graph-stage svg:active { cursor: grabbing; }
-.g-edge { stroke: var(--border-strong); stroke-width: 1.2; }
-.g-edge.hl { stroke: var(--accent); stroke-width: 2; }
-.g-node circle { cursor: pointer; stroke: var(--bg-card); stroke-width: 1.5; transition: filter .12s ease; }
-.g-node circle:hover { filter: brightness(1.12); }
-.g-node.dim { opacity: .25; }
-.g-node text { font-size: 11px; fill: var(--text); pointer-events: none; }
-.g-edgelabel { font-size: 9.5px; fill: var(--text-3); pointer-events: none; }
+.graph-stage canvas { width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
