@@ -45,11 +45,6 @@ class MemoryConfig:
     llm_provider_id: str = ""
     auto_rebuild_on_switch: bool = True
     rebuild_batch_size: int = 50
-    # OpenAI provider 配置(由插件/AstrBot 注入到 registry 时读取)
-    openai_api_key: str = ""
-    openai_embedding_model: str = "text-embedding-3-small"
-    openai_llm_model: str = "gpt-4o-mini"
-    openai_base_url: str = "https://api.openai.com/v1"
     # --- v0.9: 模式分离 (DG) ---
     enable_separation: bool = True
     separation_max_links: int = 5  # per engram,双向 similar_to 链总长度上限

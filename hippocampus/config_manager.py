@@ -64,10 +64,6 @@ _FIELDS: dict[str, _FieldSpec] = {
     "llm_provider_id": _FieldSpec(str, label_zh="AstrBot LLM Provider ID", label_en="AstrBot LLM provider id"),
     "auto_rebuild_on_switch": _FieldSpec(bool, label_zh="切换 embedding 时自动重建", label_en="Auto rebuild on switch"),
     "rebuild_batch_size": _FieldSpec(int, (1, 10000), label_zh="重建批大小", label_en="Rebuild batch size"),
-    "openai_api_key": _FieldSpec(str, label_zh="OpenAI API Key", label_en="OpenAI API key"),
-    "openai_embedding_model": _FieldSpec(str, label_zh="OpenAI embedding 模型", label_en="OpenAI embedding model"),
-    "openai_llm_model": _FieldSpec(str, label_zh="OpenAI LLM 模型", label_en="OpenAI LLM model"),
-    "openai_base_url": _FieldSpec(str, label_zh="OpenAI base URL", label_en="OpenAI base URL"),
     # v0.9
     "enable_separation": _FieldSpec(bool, label_zh="启用 DG 模式分离", label_en="Enable DG separation"),
     "separation_max_links": _FieldSpec(int, (0, 100), label_zh="分离链长度上限", label_en="Separation max links"),
@@ -131,10 +127,39 @@ class ConfigManager:
         cfg = cm.memory_config  # MemoryConfig, fully populated
     """
 
+    # Group keys in _conf_schema.json that AstrBot renders as nested
+    # `type: object` dicts. Their inner keys are hoisted to the top
+    # level so the flat _FIELDS registry can validate them.
+    _GROUP_KEYS = (
+        "provider_settings",
+        "storage_settings",
+        "memory_settings",
+        "backup_settings",
+    )
+
     def __init__(self, raw: dict | None = None) -> None:
-        self._raw: dict = dict(raw or {})
+        self._raw: dict = self._flatten(raw or {})
         self._memory_config: MemoryConfig | None = None
         self._build()
+
+    @classmethod
+    def _flatten(cls, raw: dict) -> dict:
+        """Flatten the grouped _conf_schema.json shape into a flat dict.
+
+        Only the known group keys are unwrapped; every other top-level
+        key (legacy flat configs, dict-valued fields like
+        metamemory_weights / extra) passes through untouched. Top-level
+        keys win over nested keys on collision.
+        """
+        flat: dict = {}
+        for k, v in raw.items():
+            if k in cls._GROUP_KEYS and isinstance(v, dict):
+                for nk, nv in v.items():
+                    flat.setdefault(nk, nv)
+        for k, v in raw.items():
+            if not (k in cls._GROUP_KEYS and isinstance(v, dict)):
+                flat[k] = v
+        return flat
 
     def _build(self) -> None:
         # 1. Collect values per-field with fallback + validation

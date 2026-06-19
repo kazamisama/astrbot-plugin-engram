@@ -193,23 +193,29 @@ def test_conf_schema_has_bot_language_and_en_descriptions():
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
         "_conf_schema.json")
     schema = json.load(open(p, encoding="utf-8"))
-    assert "bot_language" in schema, schema.keys()
-    assert schema["bot_language"]["default"] == "zh"
-    assert "description" in schema["bot_language"]
-    assert len(schema) == 22, len(schema)  # B10: +5 backup; +2 provider_id
-    from hippocampus.config_manager import LABELS
+    # v1.4.9: schema is now 4 nested `type: object` groups. Flatten
+    # the inner items so we can spot-check field-level descriptions.
+    assert len(schema) == 4, len(schema)
+    groups = {"provider_settings", "storage_settings",
+              "memory_settings", "backup_settings"}
+    assert set(schema) == groups, set(schema)
+    flat = {}
+    for g in schema.values():
+        assert g.get("type") == "object", g
+        flat.update(g.get("items", {}))
+    assert "bot_language" in flat, list(flat)
+    assert flat["bot_language"]["default"] == "zh"
+    assert "description" in flat["bot_language"]
     for fname in [
-        "sqlite_path", "embedding_name", "embedding_dim",
-        "openai_api_key", "auto_rebuild_on_switch",
-        "enable_semantic", "metamemory_enabled",
+        "sqlite_path", "embedding_provider_id", "llm_provider_id",
+        "embedding_dim", "enable_semantic", "metamemory_enabled",
     ]:
-        assert fname in schema, fname
-        desc = schema[fname].get("description", "")
-        # B9+: descriptions are localized to Chinese per user request;
-        # just assert each field carries a non-empty description + hint.
+        assert fname in flat, fname
+        desc = flat[fname].get("description", "")
+        # descriptions are localized to Chinese per user request; just
+        # assert each field carries a non-empty description.
         assert isinstance(desc, str) and desc, fname + ": empty description"
-        assert fname in LABELS, fname + ": missing LABELS entry"
-    print("  22 fields, bot_language, zh descriptions present: OK")
+    print("  4 groups, bot_language, zh descriptions present: OK")
 
 
 def test_plugin_initializer_uses_bot_language():

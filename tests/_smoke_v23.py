@@ -44,7 +44,7 @@ def test_registry_covers_all_memory_config_fields():
         f"missing in registry: {cfg_fields - registry_fields}\n"
         f"extra in registry:   {registry_fields - cfg_fields}"
     )
-    assert len(registry_fields) == 74  # B10: +5 backup; +2 provider_id (67+5+2=74)
+    assert len(registry_fields) == 70  # 67 base +5 backup +2 provider_id -4 openai
     print("  all 67 fields registered: OK")
 
 
@@ -69,13 +69,9 @@ def test_legacy_14_field_dict_flows_through():
     banner("legacy 14-field dict (PluginInitializer v1.4 path) round-trip")
     raw = {
         "sqlite_path": "/tmp/test_legacy.db",
-        "embedding_name": "openai",
+        "embedding_name": "hash",
         "llm_name": "rule",
         "embedding_dim": 128,
-        "openai_api_key": "sk-xxx",
-        "openai_embedding_model": "text-embedding-3-large",
-        "openai_llm_model": "gpt-4o",
-        "openai_base_url": "https://api.openai.com/v1",
         "auto_rebuild_on_switch": False,
         "enable_semantic": True,
         "enable_prospective": False,
@@ -87,12 +83,9 @@ def test_legacy_14_field_dict_flows_through():
     cfg = cm.memory_config
     # every user-set field respected
     assert cfg.sqlite_path == "/tmp/test_legacy.db"
-    assert cfg.embedding_name == "openai"
+    assert cfg.embedding_name == "hash"
     assert cfg.llm_name == "rule"
     assert cfg.embedding_dim == 128
-    assert cfg.openai_api_key == "sk-xxx"
-    assert cfg.openai_embedding_model == "text-embedding-3-large"
-    assert cfg.openai_llm_model == "gpt-4o"
     assert cfg.auto_rebuild_on_switch is False
     assert cfg.enable_semantic is True
     assert cfg.enable_prospective is False
@@ -186,7 +179,7 @@ def test_extras_collected_into_memory_config_extra():
 
 def test_labels_have_zh_and_en_for_every_field():
     banner("LABELS has zh + en for every field; spot-check 3 well-known fields")
-    assert len(LABELS) == 74  # B10: +5 backup; +2 provider_id
+    assert len(LABELS) == 70  # 67 base +5 backup +2 provider_id -4 openai
     for fname, lab in LABELS.items():
         assert "zh" in lab and "en" in lab
         assert lab["zh"] and lab["en"], f"{fname}: empty label"

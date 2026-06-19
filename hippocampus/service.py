@@ -103,21 +103,7 @@ class MemoryService:
         return (self.atom_store is not None) or (self.graph_store is not None)
 
     def _build_default_registry(self) -> ProviderRegistry:
-        reg = default_registry()
-        if self.cfg.openai_api_key:
-            from .providers import OpenAIEmbeddingProvider
-            from .llm import OpenAILLMProvider
-            reg.register_embedding("openai", OpenAIEmbeddingProvider(
-                api_key=self.cfg.openai_api_key,
-                model=self.cfg.openai_embedding_model,
-                base_url=self.cfg.openai_base_url,
-            ))
-            reg.register_llm("openai", OpenAILLMProvider(
-                api_key=self.cfg.openai_api_key,
-                model=self.cfg.openai_llm_model,
-                base_url=self.cfg.openai_base_url,
-            ))
-        return reg
+        return default_registry()
 
     # ---------- model switch ----------
     def set_embedding(self, name: str) -> str:
