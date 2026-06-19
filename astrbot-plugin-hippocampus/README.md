@@ -1,6 +1,6 @@
 # astrbot-plugin-engram
 
-> 类海马体长期记忆框架 — 4 层分桶 + DG 模式分离 + FTS5 hybrid + 用户可切u6362模型
+> 类海马体长期记忆框架 — 4 层分桶 + DG 模式分离 + FTS5 hybrid + 用户可切换模型
 
 把整个 `hippocampus/` 核心包打包进来,**自包含**,不依赖任何外部 Python 包。
 仅依赖 AstrBot 本体(`astrbot.api`)。
