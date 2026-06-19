@@ -12,6 +12,8 @@ Split history:
               method is a 1-line forward to CommandRouter.
 """
 from __future__ import annotations
+import os
+import sys
 import asyncio
 import json
 import time
@@ -19,6 +21,11 @@ from typing import Any
 
 from astrbot.api.star import Star, register, Context
 from astrbot.api.event import filter, AstrMessageEvent
+
+# AstrBot loads this plugin as a package; the plugin dir is not on
+# sys.path. Inject it so the bundled hippocampus / handlers packages
+# resolve via their existing absolute imports.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # core package lives next to this file (self-contained plugin layout)
 from hippocampus import (MemoryService, MemoryConfig, Cue,

@@ -22,7 +22,13 @@ B10 (BackupManager) adds /backups (list) and /backups/restore; see
 page_api_modules/backup.py.
 """
 from __future__ import annotations
+import os
+import sys
 from typing import Any
+
+# Plugin dir on sys.path so sibling page_api_modules resolves when
+# AstrBot imports this module under the plugin package.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from page_api_modules import (
     PageApiUtils,
