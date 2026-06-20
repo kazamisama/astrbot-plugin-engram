@@ -109,6 +109,10 @@ class ConversationSummarizer:
         result.setdefault("topics", [])
         result.setdefault("participants", rec.participants(include_bot=False))
         result.setdefault("relations", [])
+        try:
+            result["participant_names"] = rec.actor_names(include_bot=False)
+        except Exception:
+            result["participant_names"] = {}
         result["_target_chars"] = target
         result["_source_total_chars"] = total
         return result

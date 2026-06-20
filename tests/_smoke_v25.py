@@ -164,8 +164,12 @@ def test_real_service_roundtrip():
         m = api.memory_handler.list_memories(svc, k=2)
         assert m["status"] == "ok" and m["data"]["returned"] == 2
         m_alice = api.memory_handler.list_memories(
-            svc, actor_id="alice", k=10)
+            svc, q="alice", k=10)
         assert m_alice["data"]["returned"] == 2, m_alice
+        # v1.25: text search also matches summary/content
+        m_text = api.memory_handler.list_memories(
+            svc, q="Americano", k=10)
+        assert m_text["data"]["returned"] >= 1, m_text
         eid = svc.store.list_active(limit=100)[0].id
         d = api.memory_handler.get_memory_detail(svc, eid=eid)
         assert d["status"] == "ok" and d["data"]["id"] == eid

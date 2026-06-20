@@ -59,6 +59,18 @@ class ConversationRecord:
                 seen.append(ln.actor_id)
         return seen
 
+    def actor_names(self, *, include_bot: bool = False) -> dict:
+        """Map actor_id -> latest display name (speaker). Lets downstream
+        link a QQ? (actor_id) to its ?? as an alias."""
+        out = {}
+        for ln in self.lines:
+            if ln.is_bot and not include_bot:
+                continue
+            nm = (ln.speaker or "").strip()
+            if ln.actor_id and nm and nm != ln.actor_id:
+                out[ln.actor_id] = nm
+        return out
+
     def transcript(self) -> str:
         """Time-ordered, speaker-labelled text for the LLM prompt."""
         out = []

@@ -315,10 +315,11 @@ class MemoryService:
             stamps.append("peer:" + str(identity["peer_name"]))
         if stamps:
             e.tags = list(e.tags) + stamps
+        name_map = summary.get("participant_names") or {}
         try:
             self.working.add(e)
             self.store.upsert(e)
-            self._post_ingest(e)
+            self._post_ingest(e, name_map=name_map)
         except Exception as ex:
             print("[hippocampus] store_summary persist error: " + repr(ex))
             return None
@@ -591,10 +592,19 @@ class MemoryService:
             print("[hippocampus] dedup check error: " + repr(ex))
             return None
 
-    def _post_ingest(self, e: Engram) -> None:
+    def _post_ingest(self, e: Engram, name_map: dict | None = None) -> None:
         if self.semantic is not None and self.extractor is not None:
             from .semantic import _classify
             ents = self.extractor.extract_entities(e)
+            nm = name_map or {}
+            if nm:
+                for ent in ents:
+                    disp = (nm.get(ent.name) or "").strip()
+                    if disp and disp != ent.name:
+                        if ent.name not in ent.aliases:
+                            ent.aliases.append(ent.name)
+                        ent.name = disp
+                        ent.type = "person"
             stored_ids: list = []
             for ent in ents:
                 stored = self.semantic.upsert_entity(ent)

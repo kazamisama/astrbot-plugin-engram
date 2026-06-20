@@ -191,13 +191,13 @@
 
   // ---------- memories ----------
   async function loadMemories() {
-    var actor = document.getElementById("mem-actor").value.trim();
+    var q = document.getElementById("mem-search").value.trim();
     var k = document.getElementById("mem-k").value || 50;
     var wrap = document.getElementById("mem-rows");
     document.getElementById("mem-detail").innerHTML = "";
     wrap.innerHTML = emptyBox("加载中…");
     try {
-      var d = unwrap(await apiGet("page/memories", { actor_id: actor, k: k, offset: 0 }));
+      var d = unwrap(await apiGet("page/memories", { q: q, k: k, offset: 0 }));
       var items = (d && d.items) || [];
       if (!items.length) { wrap.innerHTML = emptyBox("暂无记忆"); return; }
       wrap.innerHTML = "";

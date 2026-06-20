@@ -1,7 +1,7 @@
 """Memory management handler for the page API (B9).
 
 Endpoints:
-  list_memories(actor_id, k, offset) -> paginated engram list
+  list_memories(q, k, offset) -> paginated engram list (text search)
   get_memory_detail(eid)             -> single engram detail
   delete_memory(eid, hard)           -> soft (default) or hard delete
   update_memory(eid, fields)         -> edit fields; re-embed on text change
@@ -17,7 +17,7 @@ class MemoryHandler:
     def __init__(self, utils: "PageApiUtils") -> None:
         self.utils = utils
 
-    def list_memories(self, service, actor_id: str = "",
+    def list_memories(self, service, q: str = "",
                       k: int = 50, offset: int = 0) -> dict[str, Any]:
         if service is None:
             return self.utils.error("Memory service not initialized.")
@@ -26,13 +26,22 @@ class MemoryHandler:
             offset_i = max(0, int(offset))
         except Exception:
             return self.utils.error("Invalid k or offset.")
+        q = (q or "").strip()
+        # ???????????????????????????
+        scan_limit = 10_000_000 if q else (offset_i + k_i)
         try:
-            rows = service.store.list_active(limit=offset_i + k_i)
+            rows = service.store.list_active(limit=scan_limit)
         except Exception as e:
             return self.utils.error(f"list_active failed: {e!r}")
-        if actor_id:
-            rows = [r for r in rows
-                    if (getattr(r, "actor_id", "") or "") == actor_id]
+        if q:
+            ql = q.lower()
+            def _hit(r):
+                for fld in ("summary", "content", "actor_id"):
+                    v = getattr(r, fld, "") or ""
+                    if ql in str(v).lower():
+                        return True
+                return False
+            rows = [r for r in rows if _hit(r)]
         page = rows[offset_i:offset_i + k_i]
         return self.utils.ok({
             "items": [

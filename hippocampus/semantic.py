@@ -130,6 +130,9 @@ _TYPE_HINTS: list[tuple[str, str]] = [
 
 def _classify(name: str) -> str:
     ln = name.lower().strip()
+    # 纯数字且 5-11 位 → 视为账号/用户（QQ号等），避免 unknown 兑底
+    if ln.isdigit() and 5 <= len(ln) <= 11:
+        return "person"
     for hint, t in _TYPE_HINTS:
         if hint in ln: return t
     return "unknown"

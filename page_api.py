@@ -14,7 +14,7 @@ API prefix: /astrbot_plugin_engram/page
 Endpoints:
   GET  /health           -> {version, language, service_ready}
   GET  /stats            -> {engrams, fts, entities, atoms, ...}
-  GET  /memories         -> list_memories(actor_id, k, offset)
+  GET  /memories         -> list_memories(q, k, offset)
   GET  /memories/detail  -> get_memory_detail(eid)
   POST /memories/delete  -> delete_memory(eid, hard)
   POST /memories/update  -> update_memory(eid, fields) [re-embeds on text change]
@@ -163,7 +163,7 @@ class PluginPageApi:
         args = await _query_args()
         return self.memory_handler.list_memories(
             self._service(),
-            actor_id=str(args.get("actor_id", "")),
+            q=str(args.get("q", "") or args.get("actor_id", "")),
             k=_as_int(args.get("k"), 50),
             offset=_as_int(args.get("offset"), 0),
         )
