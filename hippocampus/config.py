@@ -147,6 +147,7 @@ class MemoryConfig:
     summary_compress_ratio: float = 0.15         # target_chars = total_chars * ratio
     summary_compress_floor: int = 0              # min summary chars; 0=unbounded
     summary_compress_cap: int = 1200             # max summary chars
+    summary_idle_flush_interval_seconds: float = 60.0  # background sweep period for idle channels
     # --- v1.8: natural-language user persona (narrative profile) ---
     enable_persona: bool = False
     persona_inject_enabled: bool = False

@@ -24,6 +24,10 @@ def _install_astrbot_stub():
         def on_llm_request(*a, **k):
             def deco(fn): return fn
             return deco
+        @staticmethod
+        def on_llm_response(*a, **k):
+            def deco(fn): return fn
+            return deco
     star_mod.Star = Star; star_mod.register = register; star_mod.Context = Context
     event_mod.filter = _Filter
     event_mod.AstrMessageEvent = AstrMessageEvent

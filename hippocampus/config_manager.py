@@ -145,6 +145,7 @@ _FIELDS: dict[str, _FieldSpec] = {
     "summary_compress_ratio": _FieldSpec(float, (0.0, 1.0), label_zh="总结压缩比", label_en="Summary compress ratio"),
     "summary_compress_floor": _FieldSpec(int, (0, 5000), label_zh="总结字数下限", label_en="Summary compress floor"),
     "summary_compress_cap": _FieldSpec(int, (0, 5000), label_zh="总结字数上限", label_en="Summary compress cap"),
+    "summary_idle_flush_interval_seconds": _FieldSpec(float, (5.0, 3600.0), label_zh="空闲扫描周期秒", label_en="Idle flush interval seconds"),
     # v1.8 persona
     "enable_persona": _FieldSpec(bool, label_zh="启用用户画像", label_en="Enable persona"),
     "persona_inject_enabled": _FieldSpec(bool, label_zh="启用画像注入", label_en="Persona inject enabled"),

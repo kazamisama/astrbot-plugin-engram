@@ -93,6 +93,43 @@ class HippocampusStar(Star):
         self._page_api = None
         self._register_official_page_api_if_available()
 
+        # 4. v1.17 B-1: periodic idle-flush so quiet channels get summarized
+        #    even without a triggering message. Best-effort; skips when no
+        #    running loop (sync init path) - terminate() still flushes.
+        self._idle_flush_task = None
+        self._start_idle_flush_loop()
+
+    def _start_idle_flush_loop(self) -> None:
+        try:
+            import asyncio
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return
+        except Exception:
+            return
+
+        async def _loop():
+            import asyncio as _a
+            while True:
+                try:
+                    interval = 60.0
+                    cfg = getattr(self.service, "cfg", None)
+                    if cfg is not None:
+                        interval = float(getattr(
+                            cfg, "summary_idle_flush_interval_seconds", 60.0) or 60.0)
+                    await _a.sleep(max(5.0, interval))
+                    convbuf = getattr(self._observer, "_conv_buffer", None)
+                    if convbuf is not None:
+                        convbuf.flush_idle_now()
+                except _a.CancelledError:
+                    break
+                except Exception as ex:
+                    print("[hippocampus] idle flush loop error: " + repr(ex))
+        try:
+            self._idle_flush_task = loop.create_task(_loop())
+        except Exception:
+            self._idle_flush_task = None
+
     # ---------- event hook ----------
     @filter.event_message_type(filter.EventMessageType.ALL)
     async def observe_message(self, event: AstrMessageEvent):
@@ -107,6 +144,24 @@ class HippocampusStar(Star):
             await self._inject.handle_inject(event, req)
         except Exception as ex:
             print("[hippocampus] inject_memory hook error: " + repr(ex))
+
+    # ---------- v1.17 B-1: capture the bot's own reply into the buffer ----------
+    @filter.on_llm_response()
+    async def observe_bot_reply(self, event: AstrMessageEvent, resp):
+        """Feed the bot's own LLM reply into the conversation buffer so
+        summaries include the bot's turns. No-op unless summary mode is on;
+        never raises out of the hook."""
+        try:
+            text = ""
+            for attr in ("completion_text", "text"):
+                v = getattr(resp, attr, None)
+                if v:
+                    text = str(v)
+                    break
+            if text:
+                await self._observer.handle_bot_message(event, text)
+        except Exception as ex:
+            print("[hippocampus] observe_bot_reply hook error: " + repr(ex))
 
     # ---------- commands (thin wrappers) ----------
     # Each wrapper yields whatever the handler returns. Decorator
@@ -325,6 +380,12 @@ class HippocampusStar(Star):
             agg = getattr(self._observer, "_aggregator", None)
             if agg is not None:
                 agg.flush_all()
+            convbuf = getattr(self._observer, "_conv_buffer", None)
+            if convbuf is not None:
+                convbuf.flush_all()
+            task = getattr(self, "_idle_flush_task", None)
+            if task is not None:
+                task.cancel()
         except Exception as e:
             print(f"[hippocampus] terminate flush error: {e!r}")
         if self.service is not None:

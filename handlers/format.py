@@ -40,17 +40,55 @@ def _extract(event: AstrMessageEvent) -> dict:
     platform = (_call(event, "get_platform_name")
                 or getattr(getattr(event, "platform_meta", None), "name", None)
                 or "unknown")
-    channel_id = _call(event, "get_group_id", "") or "default"
+    group_id = _call(event, "get_group_id", "") or ""
+    channel_id = group_id or session_id or "default"
     content = (getattr(event, "message_str", None)
                or _call(event, "get_message_str")
                or "")
-    return {
+    chat_type = "group" if group_id else "private"
+    speaker = (_call(event, "get_sender_name")
+               or getattr(getattr(event, "sender", None), "nickname", None)
+               or actor_id)
+    out = {
         "session_id": session_id,
         "actor_id": actor_id,
         "platform": platform,
         "channel_id": channel_id,
         "content": content,
+        # v1.17 B-1: conversation identity stamps
+        "chat_type": chat_type,
+        "speaker": speaker,
+        "group_id": group_id,
+        "group_name": "",
+        "is_bot": False,
     }
+    if chat_type == "private":
+        out["peer_actor_id"] = actor_id
+        out["peer_name"] = speaker
+    return out
+
+
+async def _resolve_group_name(event) -> str:
+    """Best-effort async group-name lookup. AstrBot get_group() is async and
+    platform-dependent; returns "" when unavailable (never raises)."""
+    try:
+        msg_obj = getattr(event, "message_obj", None)
+        grp = getattr(msg_obj, "group", None) if msg_obj else None
+        name = getattr(grp, "group_name", None) if grp else None
+        if name:
+            return str(name)
+    except Exception:
+        pass
+    try:
+        getter = getattr(event, "get_group", None)
+        if callable(getter):
+            grp = await getter()
+            name = getattr(grp, "group_name", None) if grp else None
+            if name:
+                return str(name)
+    except Exception:
+        pass
+    return ""
 
 
 def banner_text(service):

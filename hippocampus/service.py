@@ -253,6 +253,63 @@ class MemoryService:
         self._post_ingest(e)
         return e
 
+    def store_summary(self, summary: dict, identity: dict) -> "Engram | None":
+        """Store ONE conversation/diary summary as an engram (v1.17 B-1).
+
+        `summary` is the ConversationSummarizer output (summary/key_facts/
+        topics/participants/relations + _* meta). `identity` carries the
+        channel stamps (chat_type / session_id / actor_id / platform /
+        channel_id / group_id / group_name / peer_* / memory_type).
+        Returns the stored Engram, or None when the summary text is empty.
+        """
+        from .types import Engram
+        text = (summary.get("summary") or "").strip()
+        if not text:
+            return None
+        facts = summary.get("key_facts") or []
+        content = text
+        if facts:
+            content = text + "\n" + "\n".join("- " + str(f) for f in facts)
+        actor_id = identity.get("actor_id") or identity.get("peer_actor_id") or "conversation"
+        e = Engram(
+            session_id=identity.get("session_id", "") or "",
+            actor_id=actor_id,
+            platform=identity.get("platform", "") or "",
+            channel_id=identity.get("channel_id", "") or "",
+            content=content,
+            summary=text,
+            topics=list(summary.get("topics") or []),
+            entities=list(summary.get("participants") or []),
+            importance=float(summary.get("importance", 0.6) or 0.6),
+            memory_type=identity.get("memory_type", "episodic") or "episodic",
+            embedding_model=self._current_embedding_name,
+        )
+        try:
+            e.embedding = self.embedder.embed(content)
+        except Exception as ex:
+            print("[hippocampus] store_summary embed error: " + repr(ex))
+            e.embedding = []
+        # attach conversation identity + relations as tags/metadata-ish fields.
+        stamps = []
+        if identity.get("chat_type"):
+            stamps.append("chat:" + identity["chat_type"])
+        if identity.get("group_id"):
+            stamps.append("group:" + str(identity["group_id"]))
+        if identity.get("group_name"):
+            stamps.append("groupname:" + str(identity["group_name"]))
+        if identity.get("peer_name"):
+            stamps.append("peer:" + str(identity["peer_name"]))
+        if stamps:
+            e.tags = list(e.tags) + stamps
+        try:
+            self.working.add(e)
+            self.store.upsert(e)
+            self._post_ingest(e)
+        except Exception as ex:
+            print("[hippocampus] store_summary persist error: " + repr(ex))
+            return None
+        return e
+
     def _find_text_duplicate(self, e: Engram):
         """Text-layer near-duplicate check (v1.11). Uses FTS to pull
         cross-session candidates for the same actor, then word-level
