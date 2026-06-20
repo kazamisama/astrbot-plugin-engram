@@ -21,6 +21,9 @@ Endpoints:
   POST /recall/test      -> test_recall(query, mode, k)
   GET  /graph/overview   -> graph_overview()
   POST /graph/query      -> graph_query(name)
+  POST /graph/entity/delete   -> delete_entity(eid) [hard]
+  POST /graph/relation/delete -> delete_relation(rid) [hard]
+  POST /graph/relation/update -> update_relation(rid, confidence)
   GET  /backups          -> list backups (newest first)
   POST /backups/restore  -> restore from backup_id (DANGEROUS)
 """
@@ -141,6 +144,15 @@ class PluginPageApi:
                  ["GET"], "Hippocampus graph data (nodes+edges)")
         register(f"{PAGE_API_PREFIX}/graph/query", self._graph_query,
                  ["POST"], "Hippocampus graph query")
+        register(f"{PAGE_API_PREFIX}/graph/entity/delete",
+                 self._graph_entity_delete,
+                 ["POST"], "Hippocampus graph entity hard delete")
+        register(f"{PAGE_API_PREFIX}/graph/relation/delete",
+                 self._graph_relation_delete,
+                 ["POST"], "Hippocampus graph relation hard delete")
+        register(f"{PAGE_API_PREFIX}/graph/relation/update",
+                 self._graph_relation_update,
+                 ["POST"], "Hippocampus graph relation confidence update")
         register(f"{PAGE_API_PREFIX}/backups", self._list_backups,
                  ["GET"], "Hippocampus backup list")
         register(f"{PAGE_API_PREFIX}/backups/restore", self._restore_backup,
@@ -214,6 +226,22 @@ class PluginPageApi:
         body = await _json_body()
         return self.graph_handler.graph_query(
             self._service(), name=str(body.get("name", "")))
+
+    async def _graph_entity_delete(self) -> dict[str, Any]:
+        body = await _json_body()
+        return self.graph_handler.delete_entity(
+            self._service(), eid=str(body.get("eid", "")))
+
+    async def _graph_relation_delete(self) -> dict[str, Any]:
+        body = await _json_body()
+        return self.graph_handler.delete_relation(
+            self._service(), rid=str(body.get("rid", "")))
+
+    async def _graph_relation_update(self) -> dict[str, Any]:
+        body = await _json_body()
+        return self.graph_handler.update_relation(
+            self._service(), rid=str(body.get("rid", "")),
+            confidence=body.get("confidence"))
 
     async def _list_backups(self) -> dict[str, Any]:
         return self.backup_handler.list_backups(self._backup_manager())

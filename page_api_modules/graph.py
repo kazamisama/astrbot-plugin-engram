@@ -147,9 +147,11 @@ class GraphHandler:
                 src_ent = sem.get_entity(src_id) if src_id else None
                 dst_ent = sem.get_entity(dst_id) if dst_id else None
                 out_rels.append({
+                    "id": getattr(r, "id", None),
                     "src": getattr(src_ent, "name", src_id),
                     "predicate": getattr(r, "predicate", None),
                     "dst": getattr(dst_ent, "name", dst_id),
+                    "confidence": getattr(r, "confidence", None),
                 })
         except Exception:
             pass
@@ -170,3 +172,57 @@ class GraphHandler:
             "relations": out_rels[:100],
             "engram_refs": refs[:100],
         })
+
+    def delete_entity(self, service, eid: str) -> dict[str, Any]:
+        if service is None:
+            return self.utils.error("Memory service not initialized.")
+        sem = service.semantic
+        if sem is None:
+            return self.utils.error("Semantic layer disabled.")
+        eid = (eid or "").strip()
+        if not eid:
+            return self.utils.error("Missing eid.")
+        try:
+            n = sem.delete_entity(eid)
+        except Exception as e:
+            return self.utils.error(f"delete_entity failed: {e!r}")
+        return self.utils.ok({"id": eid, "relations_removed": n})
+
+    def delete_relation(self, service, rid: str) -> dict[str, Any]:
+        if service is None:
+            return self.utils.error("Memory service not initialized.")
+        sem = service.semantic
+        if sem is None:
+            return self.utils.error("Semantic layer disabled.")
+        rid = (rid or "").strip()
+        if not rid:
+            return self.utils.error("Missing rid.")
+        try:
+            ok = sem.delete_relation(rid)
+        except Exception as e:
+            return self.utils.error(f"delete_relation failed: {e!r}")
+        if not ok:
+            return self.utils.error(f"unknown relation: {rid}")
+        return self.utils.ok({"id": rid, "deleted": True})
+
+    def update_relation(self, service, rid: str,
+                        confidence) -> dict[str, Any]:
+        if service is None:
+            return self.utils.error("Memory service not initialized.")
+        sem = service.semantic
+        if sem is None:
+            return self.utils.error("Semantic layer disabled.")
+        rid = (rid or "").strip()
+        if not rid:
+            return self.utils.error("Missing rid.")
+        try:
+            c = float(confidence)
+        except Exception:
+            return self.utils.error("Invalid confidence.")
+        try:
+            ok = sem.set_relation_confidence(rid, c)
+        except Exception as e:
+            return self.utils.error(f"update_relation failed: {e!r}")
+        if not ok:
+            return self.utils.error(f"unknown relation: {rid}")
+        return self.utils.ok({"id": rid, "confidence": max(0.0, min(1.0, c))})

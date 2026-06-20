@@ -114,6 +114,33 @@ class SemanticStore:
             row = cur.fetchone()
         return Entity.from_row(dict(row)) if row else None
 
+    def delete_entity(self, entity_id: str) -> int:
+        """Hard-delete an entity and every relation touching it.
+        Returns the number of relation rows removed."""
+        with self._lock, self._conn:
+            cur = self._conn.execute(
+                "SELECT COUNT(*) FROM relations WHERE subject_id=? OR object_id=?",
+                (entity_id, entity_id))
+            n = int(cur.fetchone()[0])
+            self._conn.execute(
+                "DELETE FROM relations WHERE subject_id=? OR object_id=?",
+                (entity_id, entity_id))
+            self._conn.execute("DELETE FROM entities WHERE id=?", (entity_id,))
+        return n
+
+    def delete_relation(self, relation_id: str) -> bool:
+        with self._lock, self._conn:
+            cur = self._conn.execute(
+                "DELETE FROM relations WHERE id=?", (relation_id,))
+        return cur.rowcount > 0
+
+    def set_relation_confidence(self, relation_id: str, confidence: float) -> bool:
+        c = max(0.0, min(1.0, float(confidence)))
+        with self._lock, self._conn:
+            cur = self._conn.execute(
+                "UPDATE relations SET confidence=? WHERE id=?", (c, relation_id))
+        return cur.rowcount > 0
+
 _TYPE_HINTS: list[tuple[str, str]] = [
     ("shanghai", "place"), ("beijing", "place"), ("shenzhen", "place"),
     ("guangzhou", "place"), ("hangzhou", "place"), ("tokyo", "place"),

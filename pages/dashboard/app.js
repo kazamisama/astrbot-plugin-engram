@@ -525,39 +525,142 @@
     }
   }
 
+  function _entId(name) { return "ent_" + String(name).replace(/[^a-zA-Z0-9_]/g, "_"); }
+
   async function showEntityDetail(name) {
     var el = document.getElementById("graph-detail");
-    el.innerHTML = '<div class="section-title">实体关系 · ' + escapeHtml(name) + "</div>" + emptyBox("加载中…");
+    el.innerHTML = '<div class="section-title">\u5b9e\u4f53\u5173\u7cfb \u00b7 ' + escapeHtml(name) + "</div>" + emptyBox("\u52a0\u8f7d\u4e2d\u2026");
     try {
       var d = unwrap(await apiPost("page/graph/query", { name: name }));
       var ent = (d && d.entity) || {};
       var rels = (d && d.relations) || [];
       var refs = (d && d.engram_refs) || [];
-      var html = '<div class="section-title">实体关系 · ' + escapeHtml(ent.name || name) + "</div>";
+      var eid = ent.id || "";
+      var html = '<div class="section-title">\u5b9e\u4f53\u5173\u7cfb \u00b7 ' + escapeHtml(ent.name || name) + "</div>";
       html += kvRows({ name: ent.name, type: ent.type });
+      html += '<div class="edit-actions">' +
+        '<button id="ent-del-hard" class="btn btn-sm btn-danger" data-eid="' + escapeHtml(eid) + '">\u6c38\u4e45\u5220\u9664\u5b9e\u4f53</button>' +
+        '<span id="ent-msg" class="edit-msg"></span></div>';
       if (rels.length) {
-        html += '<div class="section-title">关系（' + rels.length + "）</div>";
+        html += '<div class="section-title">\u5173\u7cfb\uff08' + rels.length + "\uff09</div>";
         rels.forEach(function (r) {
-          html += '<div class="result"><div class="result-text">' +
-            escapeHtml(r.src) + ' <span class="chip">' + escapeHtml(r.predicate || "关联") + "</span> " +
-            escapeHtml(r.dst) + "</div></div>";
+          var rid = r.id || "";
+          var cv = Number(r.confidence);
+          if (isNaN(cv)) cv = 0; cv = Math.max(0, Math.min(1, cv));
+          var sid = "rel-conf-" + rid;
+          html += '<div class="result" data-rid="' + escapeHtml(rid) + '">' +
+            '<div class="result-text">' +
+            escapeHtml(r.src) + ' <span class="chip">' + escapeHtml(r.predicate || "\u5173\u8054") + "</span> " +
+            escapeHtml(r.dst) + "</div>" +
+            '<div class="edit-row"><label class="edit-k">\u7f6e\u4fe1\u5ea6 ' +
+            '<span id="' + sid + '-val" class="slider-val">' + cv.toFixed(2) + "</span></label>" +
+            '<input id="' + sid + '" class="edit-slider rel-slider" type="range" min="0" max="1" step="0.01" value="' + cv + '" data-rid="' + escapeHtml(rid) + '" /></div>' +
+            '<div class="edit-actions">' +
+            '<button class="btn btn-sm rel-save" data-rid="' + escapeHtml(rid) + '">\u4fdd\u5b58\u7f6e\u4fe1\u5ea6</button>' +
+            '<button class="btn btn-sm btn-danger rel-del" data-rid="' + escapeHtml(rid) + '">\u5220\u9664\u5173\u7cfb</button></div>' +
+            "</div>";
         });
       } else {
-        html += emptyBox("该实体暂无关系记录");
+        html += emptyBox("\u8be5\u5b9e\u4f53\u6682\u65e0\u5173\u7cfb\u8bb0\u5f55");
       }
       if (refs.length) {
-        html += '<div class="section-title">关联记忆（' + refs.length + "）</div>";
+        html += '<div class="section-title">\u5173\u8054\u8bb0\u5fc6\uff08' + refs.length + "\uff09</div>";
         refs.forEach(function (m) {
           html += '<div class="mem-item"><div class="mem-head"><span class="chip">#' +
             escapeHtml(m.id) + '</span></div><div class="mem-summary">' +
-            escapeHtml(m.summary || "（无摘要）") + "</div></div>";
+            escapeHtml(m.summary || "\uff08\u65e0\u6458\u8981\uff09") + "</div></div>";
         });
       }
       el.innerHTML = html;
+      var entDel = document.getElementById("ent-del-hard");
+      if (entDel) { entDel.addEventListener("click", function () { deleteEntity(eid, ent.name || name); }); }
+      Array.prototype.forEach.call(el.querySelectorAll(".rel-slider"), function (sl) {
+        var lab = document.getElementById(sl.id + "-val");
+        if (lab) { sl.addEventListener("input", function () { lab.textContent = Number(sl.value).toFixed(2); }); }
+      });
+      Array.prototype.forEach.call(el.querySelectorAll(".rel-save"), function (b) {
+        b.addEventListener("click", function () {
+          var rid = b.getAttribute("data-rid");
+          var sl = document.getElementById("rel-conf-" + rid);
+          saveRelationConfidence(rid, sl ? sl.value : 0, ent.name || name);
+        });
+      });
+      Array.prototype.forEach.call(el.querySelectorAll(".rel-del"), function (b) {
+        b.addEventListener("click", function () { deleteRelation(b, b.getAttribute("data-rid"), ent.name || name); });
+      });
     } catch (e) {
       el.innerHTML = errBox(e.message);
     }
   }
+
+  var _entDelArm = { eid: null, timer: null };
+  function _disarmEntDelete() {
+    if (_entDelArm.timer) { clearTimeout(_entDelArm.timer); _entDelArm.timer = null; }
+    _entDelArm.eid = null;
+    var b = document.getElementById("ent-del-hard");
+    if (b) { b.textContent = "\u6c38\u4e45\u5220\u9664\u5b9e\u4f53"; b.classList.remove("btn-armed"); }
+  }
+
+  async function deleteEntity(eid, name) {
+    var msg = document.getElementById("ent-msg");
+    var btn = document.getElementById("ent-del-hard");
+    if (!eid) { if (msg) { msg.textContent = "\u7f3a\u5c11\u5b9e\u4f53 ID"; msg.className = "edit-msg err"; } return; }
+    if (_entDelArm.eid !== eid) {
+      _disarmEntDelete();
+      _entDelArm.eid = eid;
+      if (btn) { btn.textContent = "\u518d\u6b21\u70b9\u51fb\u786e\u8ba4\u6c38\u4e45\u5220\u9664"; btn.classList.add("btn-armed"); }
+      if (msg) { msg.textContent = "\u6c38\u4e45\u5220\u9664\u5b9e\u4f53\u53ca\u5176\u5168\u90e8\u5173\u7cfb\uff0c\u4e0d\u53ef\u6062\u590d\uff0c\u786e\u8ba4\u8bf7\u518d\u70b9\u4e00\u6b21\u3002"; msg.className = "edit-msg"; }
+      _entDelArm.timer = setTimeout(_disarmEntDelete, 4000);
+      return;
+    }
+    _disarmEntDelete();
+    if (msg) { msg.textContent = "\u5220\u9664\u4e2d\u2026"; msg.className = "edit-msg"; }
+    try {
+      var r = unwrap(await apiPost("page/graph/entity/delete", { eid: eid }));
+      document.getElementById("graph-detail").innerHTML = emptyBox("\u5df2\u6c38\u4e45\u5220\u9664\u5b9e\u4f53 " + (name || eid) + "\uff08\u540c\u65f6\u79fb\u9664 " + ((r && r.relations_removed) || 0) + " \u6761\u5173\u7cfb\uff09");
+      await loadGraph();
+    } catch (e) {
+      if (msg) { msg.textContent = "\u5220\u9664\u5931\u8d25\uff1a" + e.message; msg.className = "edit-msg err"; }
+    }
+  }
+
+  async function saveRelationConfidence(rid, value, entName) {
+    var msg = document.getElementById("ent-msg");
+    if (!rid) return;
+    try {
+      var r = unwrap(await apiPost("page/graph/relation/update", { rid: rid, confidence: Number(value) }));
+      if (msg) { msg.textContent = "\u5df2\u4fdd\u5b58\u7f6e\u4fe1\u5ea6 " + Number((r && r.confidence) || value).toFixed(2); msg.className = "edit-msg ok"; }
+    } catch (e) {
+      if (msg) { msg.textContent = "\u4fdd\u5b58\u5931\u8d25\uff1a" + e.message; msg.className = "edit-msg err"; }
+    }
+  }
+
+  var _relDelArm = { rid: null, timer: null };
+  async function deleteRelation(btn, rid, entName) {
+    var msg = document.getElementById("ent-msg");
+    if (!rid) return;
+    if (_relDelArm.rid !== rid) {
+      if (_relDelArm.timer) clearTimeout(_relDelArm.timer);
+      _relDelArm.rid = rid;
+      if (btn) { btn.textContent = "\u518d\u6b21\u786e\u8ba4"; btn.classList.add("btn-armed"); }
+      if (msg) { msg.textContent = "\u5220\u9664\u5173\u7cfb\u4e0d\u53ef\u6062\u590d\uff0c\u786e\u8ba4\u8bf7\u518d\u70b9\u4e00\u6b21\u3002"; msg.className = "edit-msg"; }
+      _relDelArm.timer = setTimeout(function () {
+        _relDelArm.rid = null;
+        if (btn) { btn.textContent = "\u5220\u9664\u5173\u7cfb"; btn.classList.remove("btn-armed"); }
+      }, 4000);
+      return;
+    }
+    if (_relDelArm.timer) { clearTimeout(_relDelArm.timer); _relDelArm.timer = null; }
+    _relDelArm.rid = null;
+    try {
+      unwrap(await apiPost("page/graph/relation/delete", { rid: rid }));
+      if (entName) { await showEntityDetail(entName); }
+      if (msg) { msg.textContent = "\u5df2\u5220\u9664\u5173\u7cfb"; msg.className = "edit-msg ok"; }
+    } catch (e) {
+      if (msg) { msg.textContent = "\u5220\u9664\u5931\u8d25\uff1a" + e.message; msg.className = "edit-msg err"; }
+    }
+  }
+
   // ---------- wire ----------
   document.getElementById("btn-refresh-stats").addEventListener("click", loadStats);
   document.getElementById("btn-load-mem").addEventListener("click", loadMemories);
