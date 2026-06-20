@@ -109,9 +109,9 @@
             },
             "session_aggregate_idle_seconds": {
                 "type": "float",
-                "default": 120.0,
+                "default": 8.0,
                 "description": "会话聚合静默秒数",
-                "hint": "发言人停顿超过这么多秒后，其缓冲会在下次有任意消息到达时结算入库。0 表示不按静默触发（仅靠条数）。"
+                "hint": "同一人两条消息间隔超过这么多秒就视为两段记忆。默认 8 秒，只把同一人“无人插话、短时间连发”的多条合并为一条，不会跨发言人合并（缓冲按 channel_id+actor_id 区分）。0 表示不按静默触发（仅靠条数）。"
             },
             "session_aggregate_min_chars": {
                 "type": "int",

@@ -121,7 +121,7 @@ class MemoryConfig:
     # --- v1.6: per-speaker conversation aggregation (optional) ---
     session_aggregate_enabled: bool = False
     session_aggregate_max_messages: int = 5
-    session_aggregate_idle_seconds: float = 120.0
+    session_aggregate_idle_seconds: float = 8.0
     session_aggregate_min_chars: int = 2
     # --- v1.8: natural-language user persona (narrative profile) ---
     enable_persona: bool = False

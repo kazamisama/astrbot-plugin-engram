@@ -57,9 +57,9 @@ def test_fields_defaults():
     cfg = ConfigManager({}).memory_config
     assert cfg.session_aggregate_enabled is False
     assert cfg.session_aggregate_max_messages == 5
-    assert cfg.session_aggregate_idle_seconds == 120.0
+    assert cfg.session_aggregate_idle_seconds == 8.0
     assert cfg.session_aggregate_min_chars == 2
-    print("  defaults: disabled / cap=5 / idle=120 / min=2 OK")
+    print("  defaults: disabled / cap=5 / idle=8 / min=2 OK")
 
 
 def test_size_cap_merges():
