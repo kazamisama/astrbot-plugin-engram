@@ -37,6 +37,9 @@ _COMPAT_MIGRATIONS: List[tuple] = [
     ("v1.2", [
         ("confidence", "REAL DEFAULT 0.5"),
     ]),
+    ("v1.13", [
+        ("tier", "TEXT DEFAULT 'hot'"),
+    ]),
 ]
 
 

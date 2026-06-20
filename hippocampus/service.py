@@ -417,6 +417,13 @@ class MemoryService:
     # Works whether or not a loop is running: falls back to a dedicated
     # daemon thread + new_event_loop when called from sync code.
     def start_background_tasks(self) -> None:
+        # v1.13: one-shot tier reclassification at startup (cheap, no loop).
+        # Refreshes hot/warm/cold for memories that aged while offline.
+        if getattr(self.cfg, "tiering_enabled", False):
+            try:
+                self.reclassify_tiers()
+            except Exception as ex:
+                print("[hippocampus] startup tier sweep error: " + repr(ex))
         if not (self.cfg.enable_atom_extraction or self.cfg.enable_graph_indexing):
             return
         self._ensure_atom_layer()
@@ -535,6 +542,19 @@ class MemoryService:
         if self.atom_lifecycle is None:
             return 0
         return self.atom_lifecycle.run_gc(floor=floor, min_age_seconds=min_age_seconds)
+
+    def reclassify_tiers(self) -> dict:
+        """v1.13: recompute + persist hot/warm/cold for every engram.
+        Non-destructive (no deletes). Returns a count dict, or {} when
+        tiering is disabled."""
+        if not getattr(self.cfg, "tiering_enabled", False):
+            return {}
+        from .tiering import TieringEngine
+        try:
+            return TieringEngine(self.store, self.cfg).reclassify_all()
+        except Exception as ex:
+            print("[hippocampus] reclassify_tiers error: " + repr(ex))
+            return {}
 
     # ---------- v1.1+ delegations to profile / activation / consolidator ----------
     def build_profile(self, actor_id):

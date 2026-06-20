@@ -76,6 +76,7 @@ class HippocampalStore:
               cluster_id TEXT DEFAULT '',
               profile_fact_id TEXT DEFAULT ''
               ,confidence REAL DEFAULT 0.5
+              ,tier TEXT DEFAULT 'hot'
             );
             CREATE INDEX IF NOT EXISTS idx_session ON engrams(session_id);
             CREATE INDEX IF NOT EXISTS idx_actor ON engrams(actor_id);
@@ -238,6 +239,7 @@ class HippocampalStore:
             e.valence, e.intensity, e.temporal_bucket, e.stream, e.forgotten_at,
             e.cluster_id, e.profile_fact_id,
             e.confidence,
+            e.tier,
         )
         with self._lock, self._conn:
             self._conn.execute("""
@@ -247,8 +249,8 @@ class HippocampalStore:
               reconsolidation_lock_until,supersedes,embedding_json,
               memory_type,promoted_at,embedding_model,fts_text,
               valence,intensity,temporal_bucket,stream,forgotten_at,
-              cluster_id,profile_fact_id,confidence)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+              cluster_id,profile_fact_id,confidence,tier)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             ON CONFLICT(id) DO UPDATE SET
               summary=excluded.summary, topics=excluded.topics, entities=excluded.entities,
               entity_refs=excluded.entity_refs, tags=excluded.tags, similar_to=excluded.similar_to,
@@ -263,7 +265,8 @@ class HippocampalStore:
               valence=excluded.valence, intensity=excluded.intensity,
               temporal_bucket=excluded.temporal_bucket, stream=excluded.stream,
               forgotten_at=excluded.forgotten_at,
-              confidence=excluded.confidence
+              confidence=excluded.confidence,
+              tier=excluded.tier
             """, row)
 
     def get(self, eid: str) -> Engram | None:

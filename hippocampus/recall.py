@@ -16,6 +16,12 @@ class Reconsolidator:
         e.last_accessed = now
         e.reconsolidation_lock_until = now + self._cfg.reconsolidation_lock_seconds
         e.strength = min(1.0, e.strength + 0.05)
+        if getattr(self._cfg, "tiering_enabled", False):
+            try:
+                from .tiering import classify
+                e.tier = classify(e, self._cfg, now)
+            except Exception:
+                pass
         self._store.upsert(e)
 
 
@@ -69,6 +75,22 @@ class PatternCompleter:
             fused = fts
         else:
             fused = _rrf_fuse(vec, fts)
+
+        # v1.13: hot/warm/cold tier routing. Normal recall uses hot+warm;
+        # cold is held back and only merged in as a fallback when hot+warm
+        # under-deliver (or when the operator opts to always include cold).
+        if getattr(self._cfg, "tiering_enabled", False):
+            from .tiering import TieringEngine
+            eng = TieringEngine(self._store, self._cfg)
+            hot_warm, cold = eng.split_candidates(fused)
+            include_cold = bool(getattr(self._cfg, "tier_recall_include_cold", False))
+            min_hits = int(getattr(self._cfg, "tier_cold_fallback_min_hits", 1) or 0)
+            if include_cold:
+                fused = hot_warm + cold
+            elif len(hot_warm) < max(0, min_hits):
+                fused = hot_warm + cold
+            else:
+                fused = hot_warm
 
         # 时序/强度/topic 重排
         now = time.time()

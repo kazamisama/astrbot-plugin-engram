@@ -51,6 +51,15 @@ class MemoryConfig:
     dedup_enabled: bool = True
     dedup_threshold: float = 0.9  # Jaccard >= this => near-duplicate
     dedup_candidate_k: int = 10   # FTS candidates to Jaccard-check
+    # --- v1.13: hot/warm/cold memory tiering (memori-inspired) ---
+    tiering_enabled: bool = True
+    tier_hot_max_age_days: float = 3.0     # accessed within N days => hot
+    tier_hot_min_strength: float = 0.5     # ...and strength >= this => hot
+    tier_warm_max_age_days: float = 30.0   # else, within N days => warm
+    tier_cold_strength_floor: float = 0.1  # strength below this can go cold early
+    tier_recall_include_cold: bool = False # cold joins normal recall only as fallback
+    tier_cold_fallback_min_hits: int = 1   # run cold fallback when hot+warm hits < this
+    tier_maintenance_interval_seconds: float = 1800.0  # background reclassify period; 0=off
     # --- v0.9: 模式分离 (DG) ---
     enable_separation: bool = True
     separation_max_links: int = 5  # per engram,双向 similar_to 链总长度上限

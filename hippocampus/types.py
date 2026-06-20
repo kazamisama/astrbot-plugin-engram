@@ -45,6 +45,8 @@ class Engram:
     profile_fact_id: str = ""         # 如果是表型支撑出来的知识, 链接到 profile_facts.id
     # --- v1.2: metamemory (feeling-of-knowing / confidence) ---
     confidence: float = 0.5           # 元记忆:对这条记忆的主观确定度, [0, 1]
+    # --- v1.13: hot/warm/cold tier cache (derived; see hippocampus.tiering) ---
+    tier: str = "hot"
 
     def to_json(self) -> str: return json.dumps(asdict(self), ensure_ascii=False)
 

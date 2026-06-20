@@ -171,6 +171,54 @@
                 "default": 10,
                 "description": "去重候选数",
                 "hint": "用 FTS 拉取多少条同用户候选做 Jaccard 比对。默认 10。"
+            },
+            "tiering_enabled": {
+                "type": "bool",
+                "default": true,
+                "description": "启用记忆分层（热/温/冷）",
+                "hint": "仿 memori 的 active/dormant/archived：按强度与访问时间把记忆分为热/温/冷。正常召回只用热+温，冷层仅在热+温不足时兑底。不删数据，只是路由。默认开启。"
+            },
+            "tier_hot_max_age_days": {
+                "type": "float",
+                "default": 3.0,
+                "description": "热层最大天龄",
+                "hint": "最近访问且强度达标的记忆为热层；超过这么多天未访问则不再是热层。默认 3 天。"
+            },
+            "tier_hot_min_strength": {
+                "type": "float",
+                "default": 0.5,
+                "description": "热层最小强度",
+                "hint": "强度 ≥ 该值且足够新才算热层。默认 0.5。"
+            },
+            "tier_warm_max_age_days": {
+                "type": "float",
+                "default": 30.0,
+                "description": "温层最大天龄",
+                "hint": "非热层但在这么多天内的记忆为温层，仍参与正常召回；超过则转冷层。默认 30 天。"
+            },
+            "tier_cold_strength_floor": {
+                "type": "float",
+                "default": 0.1,
+                "description": "冷层强度下限",
+                "hint": "强度低于该值的记忆直接归为冷层（不论年龄）。默认 0.1。"
+            },
+            "tier_recall_include_cold": {
+                "type": "bool",
+                "default": false,
+                "description": "召回总是含冷层",
+                "hint": "开启后每次召回都把冷层一起纳入（会变慢/噪声增加）。默认关闭，仅兑底时查冷层。"
+            },
+            "tier_cold_fallback_min_hits": {
+                "type": "int",
+                "default": 1,
+                "description": "冷层兑底阈值",
+                "hint": "热+温命中数小于该值时，才把冷层拉进来兑底。0 表示从不兑底（冷层完全不参与召回）。默认 1。"
+            },
+            "tier_maintenance_interval_seconds": {
+                "type": "float",
+                "default": 1800.0,
+                "description": "分层重算周期秒",
+                "hint": "后台重算分层的周期（秒）。目前主要在插件启动时做一次全量重算，该值为预留配置。0 表示关闭。"
             }
         }
     },
