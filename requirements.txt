@@ -1,2 +1,4 @@
-# 零外部依赖,仅用 Python stdlib。
-# AstrBot 本体提供 astrbot.api 抽象。
+# 本插件核心功能零外部依赖，仅用 Python stdlib。AstrBot 本体提供 astrbot.api 抽象。
+# jieba：中文词级分词（FTS/BM25 检索质量增强）。默认 tokenizer_mode=jieba 使用；
+# 若未安装会自动降级为 bigram，不会报错。
+jieba>=0.42.1
