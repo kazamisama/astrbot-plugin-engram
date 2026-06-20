@@ -174,7 +174,7 @@
       },
       "frequency_recall_weight": {
         "type": "float",
-        "default": 0.0,
+        "default": 0.1,
         "description": "频次召回权重",
         "hint": "召回排序时，按记忆被复述/命中的次数（access_count）给予加分权重。被反复提及的事实更易被召回。采用 log(1+次数) 平滑防霸榜。0 表示关闭（默认），建议 0.05~0.15。"
       },

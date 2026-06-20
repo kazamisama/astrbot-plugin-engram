@@ -24,8 +24,8 @@ def test_field_default():
     assert "frequency_recall_weight" in _FIELDS
     assert "frequency_recall_weight" in LABELS
     cfg = ConfigManager({}).memory_config
-    assert cfg.frequency_recall_weight == 0.0
-    print("  field + default 0.0 OK")
+    assert cfg.frequency_recall_weight == 0.1
+    print("  field + default 0.1 OK")
 
 
 def _svc(tmp, weight):
