@@ -80,6 +80,7 @@ class MemoryConfig:
     activation_floor: float = 0.05  # stop spreading below this activation
     activation_max_depth: int = 2   # how many hops through the semantic graph
     activation_score_weight: float = 0.18  # weight of activation in recall rerank
+    frequency_recall_weight: float = 0.0  # weight of log(1+access_count) in recall rerank; 0=off
     # --- v1.1: mood-congruent recall (Bower 1981) ---
     mood_congruence_enabled: bool = True
     mood_congruence_weight: float = 0.10  # bonus when |cue_valence - engram_valence| is small

@@ -92,6 +92,7 @@ _FIELDS: dict[str, _FieldSpec] = {
     "activation_floor": _FieldSpec(float, (0.0, 1.0), label_zh="激活扩散下限", label_en="Activation floor"),
     "activation_max_depth": _FieldSpec(int, (0, 10), label_zh="激活最大深度", label_en="Activation max depth"),
     "activation_score_weight": _FieldSpec(float, (0.0, 10.0), label_zh="激活分权重", label_en="Activation score weight"),
+    "frequency_recall_weight": _FieldSpec(float, (0.0, 10.0), label_zh="频次召回权重", label_en="Frequency recall weight"),
     "mood_congruence_enabled": _FieldSpec(bool, label_zh="启用心境一致性", label_en="Mood congruence enabled"),
     "mood_congruence_weight": _FieldSpec(float, (0.0, 10.0), label_zh="心境权重", label_en="Mood congruence weight"),
     "enable_cluster_summarization": _FieldSpec(bool, label_zh="启用聚类摘要", label_en="Enable cluster summarization"),

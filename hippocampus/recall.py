@@ -1,5 +1,6 @@
 from __future__ import annotations
 import time
+import math
 from .types import Cue, Engram, RecallResult
 from .config import MemoryConfig
 from .storage import HippocampalStore
@@ -97,6 +98,7 @@ class PatternCompleter:
         scored = []
         mood_on = self._cfg.mood_congruence_enabled and cue.valence_hint is not None
         act_on = bool(cue.activation)
+        freq_w = float(getattr(self._cfg, "frequency_recall_weight", 0.0) or 0.0)
         for e, base in fused:
             age = max(0.0, now - e.created_at)
             recency = 1.0 / (1.0 + age / 3600.0)
@@ -110,6 +112,8 @@ class PatternCompleter:
             # v1.1: spreading-activation boost - caller passed in a precomputed activation map
             if act_on:
                 score += self._cfg.activation_score_weight * float(cue.activation.get(e.id, 0.0))
+            if freq_w:
+                score += freq_w * (math.log1p(max(0, e.access_count or 0)) / 4.0)
             scored.append((e, score))
         scored.sort(key=lambda x: x[1], reverse=True)
         top = scored[:cue.k]
