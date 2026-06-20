@@ -137,6 +137,16 @@ class MemoryConfig:
     session_aggregate_max_messages: int = 5
     session_aggregate_idle_seconds: float = 8.0
     session_aggregate_min_chars: int = 0
+    # --- v1.17 (B-1): conversation-level summarization ---
+    summary_mode_enabled: bool = True            # per-channel buffer -> LLM summary -> store summary only
+    per_message_ingest_debug: bool = False       # debug: also keep legacy one-engram-per-message ingest
+    summary_idle_seconds_private: float = 1800.0  # private chat cooldown before flush
+    summary_idle_seconds_group: float = 600.0     # group chat cooldown before flush
+    summary_max_messages: int = 0                # hard cap on buffered msgs before forced flush; 0=off
+    summary_min_chars: int = 0                   # drop shorter inbound lines from the buffer
+    summary_compress_ratio: float = 0.15         # target_chars = total_chars * ratio
+    summary_compress_floor: int = 0              # min summary chars; 0=unbounded
+    summary_compress_cap: int = 1200             # max summary chars
     # --- v1.8: natural-language user persona (narrative profile) ---
     enable_persona: bool = False
     persona_inject_enabled: bool = False

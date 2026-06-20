@@ -135,6 +135,16 @@ _FIELDS: dict[str, _FieldSpec] = {
     "session_aggregate_max_messages": _FieldSpec(int, (1, 100), label_zh="会话聚合最大条数", label_en="Session aggregate max messages"),
     "session_aggregate_idle_seconds": _FieldSpec(float, (0.0, 86400.0), label_zh="会话聚合静默秒数", label_en="Session aggregate idle seconds"),
     "session_aggregate_min_chars": _FieldSpec(int, (1, 1000), label_zh="会话聚合最小字数", label_en="Session aggregate min chars"),
+    # v1.17 B-1 conversation summarization
+    "summary_mode_enabled": _FieldSpec(bool, label_zh="启用总结模式", label_en="Enable summary mode"),
+    "per_message_ingest_debug": _FieldSpec(bool, label_zh="逐条入库(调试)", label_en="Per-message ingest (debug)"),
+    "summary_idle_seconds_private": _FieldSpec(float, (0.0, 86400.0), label_zh="私聊冷却秒数", label_en="Private idle seconds"),
+    "summary_idle_seconds_group": _FieldSpec(float, (0.0, 86400.0), label_zh="群聊冷却秒数", label_en="Group idle seconds"),
+    "summary_max_messages": _FieldSpec(int, (0, 1000), label_zh="总结最大消息数", label_en="Summary max messages"),
+    "summary_min_chars": _FieldSpec(int, (0, 1000), label_zh="总结最小字数", label_en="Summary min chars"),
+    "summary_compress_ratio": _FieldSpec(float, (0.0, 1.0), label_zh="总结压缩比", label_en="Summary compress ratio"),
+    "summary_compress_floor": _FieldSpec(int, (0, 5000), label_zh="总结字数下限", label_en="Summary compress floor"),
+    "summary_compress_cap": _FieldSpec(int, (0, 5000), label_zh="总结字数上限", label_en="Summary compress cap"),
     # v1.8 persona
     "enable_persona": _FieldSpec(bool, label_zh="启用用户画像", label_en="Enable persona"),
     "persona_inject_enabled": _FieldSpec(bool, label_zh="启用画像注入", label_en="Persona inject enabled"),

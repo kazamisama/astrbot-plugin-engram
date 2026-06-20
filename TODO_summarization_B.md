@@ -206,3 +206,22 @@
 ### 分阶段补充
 - **B-1** 参考 livingmemory：session 级整段缓存 + 结构化产出 + 双通道 + source_window（需求 14）；触发用 idle+定时。
 - **B-3** 日记 prompt 用 **bot 主视角 + 人格预填充**（需求 16）。
+
+
+---
+
+## 补充：v8 前置查证结论（bot 钩子 + 群名，均源自 AstrBot 框架代码）
+
+### bot 输出钩子 ✅
+- `@filter.on_llm_response()`：LLM 生成回复后触发，拿 `LLMResponse`（livingmemory main.py:343 已用）。→ engram 收 bot 消息进缓冲用这个。
+- `@filter.after_message_sent()`：消息发出后触发。
+- 与现有 `@filter.on_llm_request()`（注入）并存，不冲突。
+
+### 群名 ✅ （异步 + 平台相关）
+- `await event.get_group()` -> `Group` 对象，有 `.group_name`（astr_message_event.py:502 / astrbot_message.py:26）。
+- 或 `event.message_obj.group.group_name`（框架自用 astr_main_agent.py:872）。
+- **get_group() 是 async，且依赖平台适配器**（aiocqhttp 已实现；部分平台可能返回 None，需容错）。`get_group_id()`（群号）是同步、稳。
+- 会话类型判定用 `event.get_message_type() == MessageType.GROUP_MESSAGE`（比“group_id 是否为空”更规范）。
+
+## 实现进度
+- [进行中] B-1 纯逻辑核心：conversation_buffer.py + summarizer.py + 烟测（不接 AstrBot 事件，可独立测）。
