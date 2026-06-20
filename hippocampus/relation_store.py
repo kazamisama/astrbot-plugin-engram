@@ -98,6 +98,9 @@ class RelationStore:
             " created_at REAL, updated_at REAL,"
             " superseded_by TEXT, forgotten_at REAL,"
             " rkey TEXT)")
+        cols = [row[1] for row in conn.execute("PRAGMA table_info(relations)").fetchall()]
+        if "rkey" not in cols:
+            conn.execute("ALTER TABLE relations ADD COLUMN rkey TEXT")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_rel_rkey ON relations(rkey)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_rel_subject ON relations(subject)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_rel_active ON relations(superseded_by, forgotten_at)")

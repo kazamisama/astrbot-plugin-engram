@@ -85,7 +85,7 @@ class PluginInitializer:
                     if getter is not None:
                         provider = getter(llm_pid)
                 if provider is None:
-                    provider = await self.context.get_using_provider()
+                    provider = self.context.get_using_provider()
                 resp = await provider.text_chat(
                     system_prompt=system, prompt=user, **kw)
                 if hasattr(resp, "text"):
