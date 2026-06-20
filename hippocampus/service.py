@@ -128,6 +128,24 @@ class MemoryService:
         old = self._current_llm_name
         self.llm = self.registry.get_llm(name)
         self._current_llm_name = name
+        # keep downstream LLM consumers in sync (mirrors set_embedding ->
+        # encoder.set_embedder). Without this the encoder/extractor/consolidator
+        # stay pinned to the construction-time provider (usually RuleLLM),
+        # so LLM-based extraction never fires after a runtime switch.
+        try:
+            self.encoder.set_llm(self.llm)
+        except Exception:
+            pass
+        if getattr(self, "extractor", None) is not None:
+            try:
+                self.extractor.set_llm(self.llm)
+            except Exception:
+                pass
+        if getattr(self, "consolidator", None) is not None:
+            try:
+                self.consolidator._llm = self.llm
+            except Exception:
+                pass
         return f"switched llm {old} -> {name}"
 
     # ---------- provider registration (delegates to registry) ----------
