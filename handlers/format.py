@@ -91,6 +91,61 @@ async def _resolve_group_name(event) -> str:
     return ""
 
 
+# (platform, self_id) -> bot nickname; avoids a network round-trip per reply.
+_BOT_NAME_CACHE: dict[tuple, str] = {}
+
+
+def _bot_actor_id(event) -> str:
+    """Bot's own account id from the platform (e.g. QQ?). Falls back to "bot"."""
+    try:
+        getter = getattr(event, "get_self_id", None)
+        if callable(getter):
+            sid = getter()
+            if sid:
+                return str(sid)
+    except Exception:
+        pass
+    try:
+        sid = getattr(getattr(event, "message_obj", None), "self_id", None)
+        if sid:
+            return str(sid)
+    except Exception:
+        pass
+    return "bot"
+
+
+async def _resolve_bot_name(event, actor_id: str = "") -> str:
+    """Best-effort bot nickname from the platform, cached per (platform, id).
+
+    aiocqhttp exposes the bot's own nickname only via an async
+    get_login_info call, so we fetch once and reuse. Returns the bot's
+    account id (or "bot") when the platform cannot supply a nickname."""
+    try:
+        platform = ""
+        getter = getattr(event, "get_platform_name", None)
+        if callable(getter):
+            platform = getter() or ""
+    except Exception:
+        platform = ""
+    key = (platform, actor_id or _bot_actor_id(event))
+    cached = _BOT_NAME_CACHE.get(key)
+    if cached:
+        return cached
+    name = ""
+    try:
+        bot = getattr(event, "bot", None)
+        if bot is not None and hasattr(bot, "call_action"):
+            info = await bot.call_action("get_login_info")
+            if isinstance(info, dict):
+                name = str(info.get("nickname") or "").strip()
+    except Exception:
+        name = ""
+    if not name:
+        name = key[1] or "bot"
+    _BOT_NAME_CACHE[key] = name
+    return name
+
+
 def banner_text(service):
     if service is None:
         return "[hippocampus] not initialized"

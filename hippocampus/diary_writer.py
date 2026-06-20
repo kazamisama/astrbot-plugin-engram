@@ -84,7 +84,11 @@ def _transcript(lines: list) -> str:
     out = []
     for ln in lines:
         t = time.strftime("%m-%d %H:%M", time.localtime(ln.ts))
-        spk = "\u6211(bot)" if ln.is_bot else (ln.speaker or ln.actor_id)
+        if ln.is_bot:
+            nm = (ln.speaker or "").strip()
+            spk = ("\u6211(" + nm + ")") if (nm and nm != ln.actor_id) else "\u6211(bot)"
+        else:
+            spk = ln.speaker or ln.actor_id
         out.append("[" + t + " " + spk + "] " + (ln.content or ""))
     return "\n".join(out)
 

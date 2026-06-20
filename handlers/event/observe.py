@@ -8,7 +8,7 @@ __init__ and invoked by the thin wrapper in main.py.
 """
 from __future__ import annotations
 from typing import TYPE_CHECKING
-from ..format import _extract, _resolve_group_name
+from ..format import _extract, _resolve_group_name, _bot_actor_id, _resolve_bot_name
 if TYPE_CHECKING:
     from hippocampus import MemoryService
 
@@ -186,8 +186,12 @@ class ObserveHandler:
             return
         meta["content"] = body
         meta["is_bot"] = True
-        meta["actor_id"] = "bot"
-        meta["speaker"] = "bot"
+        bot_aid = _bot_actor_id(event)
+        meta["actor_id"] = bot_aid
+        try:
+            meta["speaker"] = await _resolve_bot_name(event, bot_aid)
+        except Exception:
+            meta["speaker"] = bot_aid
         if meta.get("chat_type") == "group" and not meta.get("group_name"):
             try:
                 meta["group_name"] = await _resolve_group_name(event)
