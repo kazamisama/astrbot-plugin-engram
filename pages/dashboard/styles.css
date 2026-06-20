@@ -226,4 +226,12 @@ select.edit-input { cursor: pointer; }
   width: 100%; box-sizing: border-box; margin: 4px 0; cursor: pointer;
   accent-color: var(--accent);
 }
-.edit-actions .btn-danger { margin-left: auto; }
+
+/* soft vs hard delete distinction */
+#ed-del {
+  background: var(--bg-card); color: var(--danger);
+  border: 1px solid var(--danger);
+}
+#ed-del:hover { background: var(--bg-hover); }
+#ed-del { margin-left: auto; }
+#ed-del-hard { margin-left: 8px; }

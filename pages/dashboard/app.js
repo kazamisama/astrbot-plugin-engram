@@ -280,9 +280,10 @@
         ["", "hot", "warm", "cold"], TIER_LABELS) +
       '<div class="edit-actions">' +
         '<button id="ed-save" class="btn btn-sm">保存修改</button>' +
-        '<button id="ed-del" class="btn btn-sm btn-danger">删除记忆</button>' +
+        '<button id="ed-del" class="btn btn-sm btn-danger">软删除</button>' +
+        '<button id="ed-del-hard" class="btn btn-sm btn-danger">永久删除</button>' +
         '<span id="ed-msg" class="edit-msg"></span></div>' +
-      '<div class="edit-hint">修改“原文内容”会重新计算向量。删除为软删除（可被遗忘）。</div>' +
+      '<div class="edit-hint">修改“原文内容”会重新计算向量。软删除可被遗忘机制清理，永久删除不可恢复。</div>' +
       "</div>";
   }
 
@@ -328,7 +329,9 @@
       var saveBtn = document.getElementById("ed-save");
       if (saveBtn) { saveBtn.addEventListener("click", function () { saveEdit(eid); }); }
       var delBtn = document.getElementById("ed-del");
-      if (delBtn) { delBtn.addEventListener("click", function () { deleteMem(eid); }); }
+      if (delBtn) { delBtn.addEventListener("click", function () { deleteMem(eid, false); }); }
+      var delHardBtn = document.getElementById("ed-del-hard");
+      if (delHardBtn) { delHardBtn.addEventListener("click", function () { deleteMem(eid, true); }); }
       ["ed-importance", "ed-strength"].forEach(function (sid) {
         var sl = document.getElementById(sid);
         var lab = document.getElementById(sid + "-val");
@@ -341,17 +344,21 @@
     }
   }
 
-  async function deleteMem(eid) {
+  async function deleteMem(eid, hard) {
     var msg = document.getElementById("ed-msg");
-    if (!window.confirm("确认删除该记忆？（软删除，可被遗忘）")) { return; }
-    if (msg) { msg.textContent = "删除中…"; msg.className = "edit-msg"; }
+    var label = hard ? "永久删除" : "软删除";
+    var warn = hard
+      ? "确认永久删除该记忆？此操作不可恢复！"
+      : "确认软删除该记忆？（可被遗忘机制清理）";
+    if (!window.confirm(warn)) { return; }
+    if (msg) { msg.textContent = label + "中…"; msg.className = "edit-msg"; }
     try {
-      unwrap(await apiPost("page/memories/delete", { eid: eid, hard: false }));
+      unwrap(await apiPost("page/memories/delete", { eid: eid, hard: !!hard }));
       var el = document.getElementById("mem-detail");
-      if (el) { el.innerHTML = emptyBox("已删除记忆 #" + eid); }
+      if (el) { el.innerHTML = emptyBox("已" + label + "记忆 #" + eid); }
       await loadMemories();
     } catch (e) {
-      if (msg) { msg.textContent = "删除失败：" + e.message; msg.className = "edit-msg err"; }
+      if (msg) { msg.textContent = label + "失败：" + e.message; msg.className = "edit-msg err"; }
     }
   }
 

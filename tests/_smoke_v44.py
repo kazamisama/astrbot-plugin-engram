@@ -118,8 +118,19 @@ def test_update_text_reembeds():
     r6 = h.update_memory(svc, "nope", {"summary": "z"})
     assert r6["status"] == "error", r6
 
+    # 7) soft vs hard delete
+    e2 = _store_one(svc, content="to be soft deleted")
+    rs = h.delete_memory(svc, e2.id, hard=False)
+    assert rs["data"]["mode"] == "soft", rs
+    soft_row = svc.store.get(e2.id)
+    assert soft_row is not None and getattr(soft_row, "forgotten_at", 0) > 0
+    e3 = _store_one(svc, content="to be hard deleted")
+    rh = h.delete_memory(svc, e3.id, hard=True)
+    assert rh["data"]["mode"] == "hard", rh
+    assert svc.store.get(e3.id) is None, "hard delete should remove the row"
+
     svc.close()
-    print("PASS update_memory")
+    print("PASS update_memory + soft/hard delete")
 
 
 if __name__ == "__main__":
