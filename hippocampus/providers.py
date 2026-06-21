@@ -85,17 +85,26 @@ class ProxyEmbeddingProvider(EmbeddingProvider):
     coroutine results are driven to completion on a background loop so embed()
     stays a plain sync call even when invoked from an async event handler.
     """
-    def __init__(self, identity: str, fn) -> None:
+    def __init__(self, identity: str, fn, dim: int = 0) -> None:
         if not identity: raise ValueError("identity required")
         if not callable(fn): raise TypeError("fn must be callable")
         self._id = identity
         self._fn = fn
-        # auto-detect dim
-        sample = self._call("dim-probe")
-        if not isinstance(sample, list) or not all(isinstance(x, (int, float)) for x in sample):
-            raise TypeError("fn must return list[float]")
-        if len(sample) == 0: raise ValueError("fn returned empty vector")
-        self._dim = len(sample)
+        # Lazy dim detection: the backing host provider may not be ready at
+        # plugin-init time (a known startup race: the engram bridge installs
+        # before AstrBot finishes loading its embedding provider). Probing
+        # here and failing would permanently drop this provider. Instead we
+        # try once, but tolerate an empty/failed probe and resolve dim on the
+        # first successful embed().
+        self._dim = int(dim) if dim and dim > 0 else 0
+        if self._dim == 0:
+            try:
+                sample = self._call("dim-probe")
+                if (isinstance(sample, list) and sample
+                        and all(isinstance(x, (int, float)) for x in sample)):
+                    self._dim = len(sample)
+            except Exception:
+                pass
     @property
     def dim(self) -> int: return self._dim
     def name(self) -> str: return self._id
@@ -106,7 +115,12 @@ class ProxyEmbeddingProvider(EmbeddingProvider):
             out = run_sync(out)
         return out
     def embed(self, text: str) -> list[float]:
-        return self._call(text)
+        out = self._call(text)
+        # resolve dim lazily once the host provider becomes available
+        if (not self._dim and isinstance(out, list) and out
+                and all(isinstance(x, (int, float)) for x in out)):
+            self._dim = len(out)
+        return out
 
 def default_registry() -> ProviderRegistry:
     """Returns a registry pre-populated with safe defaults. Does NOT call network."""
