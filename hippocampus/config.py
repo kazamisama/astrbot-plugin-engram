@@ -60,6 +60,9 @@ class MemoryConfig:
     tier_recall_include_cold: bool = False # cold joins normal recall only as fallback
     tier_cold_fallback_min_hits: int = 1   # run cold fallback when hot+warm hits < this
     tier_maintenance_interval_seconds: float = 1800.0  # background reclassify period; 0=off
+    # --- v1.33: periodic memory decay + tier maintenance (default ON) ---
+    memory_decay_enabled: bool = True              # run Ebbinghaus engram strength decay on the maintenance loop
+    memory_decay_interval_seconds: float = 1800.0  # decay + reclassify sweep period; 0=off
     # --- v1.14: physical cold-tier archive (explicit/opt-in) ---
     cold_archive_path: str = ""            # empty => <db dir>/engram_cold_archive.jsonl.gz
     cold_archive_min_age_days: float = 60.0  # only archive cold engrams older than this

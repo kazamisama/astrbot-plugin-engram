@@ -93,6 +93,11 @@ class MemoryService:
         self._atom_task = None
         self._atom_thread = None
         self._atom_loop = None
+        # v1.33: dedicated decay/tier maintenance loop (own daemon thread,
+        # independent of the atom layer so it runs even when atoms are off).
+        self._decay_thread = None
+        self._decay_loop = None
+        self._decay_stop = None
 
     def _ensure_atom_layer(self) -> bool:
         # v1.4 B3/B4: lazy-create AtomStore + GraphStore + AtomLifecycleManager
@@ -820,6 +825,11 @@ class MemoryService:
                 self.reclassify_tiers()
             except Exception as ex:
                 print("[hippocampus] startup tier sweep error: " + repr(ex))
+        # v1.33: start the periodic memory-decay + tier-maintenance loop.
+        try:
+            self._start_decay_loop()
+        except Exception as ex:
+            print("[hippocampus] decay loop start error: " + repr(ex))
         if not (self.cfg.enable_atom_extraction or self.cfg.enable_graph_indexing):
             return
         self._ensure_atom_layer()
@@ -891,6 +901,10 @@ class MemoryService:
         self._atom_thread = None
 
     async def stop_background_tasks(self) -> None:
+        try:
+            self._stop_decay_loop()
+        except Exception:
+            pass
         if self.atom_lifecycle is None:
             return
         import asyncio as _asyncio
@@ -907,6 +921,10 @@ class MemoryService:
 
     def stop_background_tasks_sync(self) -> None:
         # Sync variant for callers without a running loop (e.g. close()).
+        try:
+            self._stop_decay_loop()
+        except Exception:
+            pass
         if self.atom_lifecycle is None:
             return
         import asyncio as _asyncio
@@ -938,6 +956,69 @@ class MemoryService:
         if self.atom_lifecycle is None:
             return 0
         return self.atom_lifecycle.run_gc(floor=floor, min_age_seconds=min_age_seconds)
+
+    def run_memory_decay(self) -> dict:
+        """One synchronous sweep: Ebbinghaus strength decay on every engram,
+        then a hot/warm/cold reclassification. Non-destructive (no deletes;
+        strength only drops, tiers only move). Returns a small report dict."""
+        out = {"decayed_below_floor": 0, "reclassified": False}
+        try:
+            tau = float(getattr(self.cfg, "decay_tau_base", 60 * 60 * 24 * 7.0))
+            floor = float(getattr(self.cfg, "decay_floor", 0.05))
+            out["decayed_below_floor"] = self.store.decay_pass(tau, floor)
+        except Exception as ex:
+            print("[hippocampus] engram decay_pass error: " + repr(ex))
+        try:
+            if getattr(self.cfg, "tiering_enabled", False):
+                self.reclassify_tiers()
+                out["reclassified"] = True
+        except Exception as ex:
+            print("[hippocampus] decay-loop reclassify error: " + repr(ex))
+        return out
+
+    def _start_decay_loop(self) -> None:
+        """Run run_memory_decay() on a fixed interval in a daemon thread.
+        Default-on; disabled when memory_decay_enabled is False or the
+        interval is <= 0."""
+        if not bool(getattr(self.cfg, "memory_decay_enabled", True)):
+            return
+        interval = float(getattr(self.cfg, "memory_decay_interval_seconds", 1800.0) or 0.0)
+        if interval <= 0:
+            return
+        if self._decay_thread is not None and self._decay_thread.is_alive():
+            return
+        import threading as _threading
+        self._decay_stop = _threading.Event()
+        stop = self._decay_stop
+
+        def _runner():
+            # Wait first, then sweep: startup already did a one-shot tier sweep,
+            # and a cold DB needs no immediate decay.
+            while not stop.wait(interval):
+                try:
+                    self.run_memory_decay()
+                except Exception as ex:
+                    print("[hippocampus] decay loop iteration error: " + repr(ex))
+
+        self._decay_thread = _threading.Thread(
+            target=_runner, name="hippocampus-decay-maint", daemon=True)
+        self._decay_thread.start()
+
+    def _stop_decay_loop(self) -> None:
+        stop = getattr(self, "_decay_stop", None)
+        if stop is not None:
+            try:
+                stop.set()
+            except Exception:
+                pass
+        thread = getattr(self, "_decay_thread", None)
+        if thread is not None and thread.is_alive():
+            try:
+                thread.join(timeout=2.0)
+            except Exception:
+                pass
+        self._decay_thread = None
+        self._decay_stop = None
 
     def reclassify_tiers(self) -> dict:
         """v1.13: recompute + persist hot/warm/cold for every engram.
@@ -1107,7 +1188,10 @@ class MemoryService:
 
     # ---------- shutdown ----------
     def close(self) -> None:
-
+        try:
+            self._stop_decay_loop()
+        except Exception:
+            pass
         for name in ("store", "semantic", "atom_store", "graph_store",
                      "prospective_store", "profile", "persona_store",
                      "relation_store", "diary_store"):

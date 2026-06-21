@@ -114,24 +114,23 @@
       (G.adj[e.dst] = G.adj[e.dst] || {})[e.src] = true;
       return { src: e.src, dst: e.dst, predicate: e.predicate || "" };
     });
-    // Parallel-edge label slots: edges between the same unordered node pair
-    // share a midpoint, so stack their labels by assigning each a slot index
-    // (0,1,2,...) and a total count for that pair. Used at draw time to fan
-    // the predicate labels out along the edge normal and avoid text overlap.
+    // Parallel-edge label slots. Edges between the same UNORDERED node pair
+    // share a midpoint regardless of direction (A->B and B->A collide), so we
+    // key by the sorted pair and assign each edge a slot index (0,1,2,...) plus
+    // the pair total. At draw time we stack the labels along the edge normal so
+    // multiple relations never overprint.
+    function _pairKey(a, b) { return a < b ? a + "\u0000" + b : b + "\u0000" + a; }
     var pairSlots = {};
     for (var pe = 0; pe < G.edges.length; pe++) {
       var ed = G.edges[pe];
-      var pk = ed.src < ed.dst ? ed.src + "\u0000" + ed.dst
-                               : ed.dst + "\u0000" + ed.src;
+      var pk = _pairKey(ed.src, ed.dst);
       var slot = pairSlots[pk] || 0;
       ed._slot = slot;
       pairSlots[pk] = slot + 1;
     }
     for (var pe2 = 0; pe2 < G.edges.length; pe2++) {
       var ed2 = G.edges[pe2];
-      var pk2 = ed2.src < ed2.dst ? ed2.src + "\u0000" + ed2.dst
-                                  : ed2.dst + "\u0000" + ed2.src;
-      ed2._slotTotal = pairSlots[pk2] || 1;
+      ed2._slotTotal = pairSlots[_pairKey(ed2.src, ed2.dst)] || 1;
     }
     G.focusId = null; G.hoverId = null;
     G.cool = CFG.COOL_FRAMES;
@@ -224,23 +223,22 @@
         ctx.font = "9px system-ui, sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        // Multiple relations between the same entity pair share an edge, so
-        // distribute their labels at different ratios ALONG the edge (and a
-        // small normal nudge) instead of stacking them on the midpoint.
+        // Multiple relations between the same entity pair all sit at the
+        // midpoint, so stack them along the edge normal (one line each) and
+        // center the stack on the midpoint. Slot order is direction-stable
+        // (see _pairKey), so A->B and B->A never land on the same row.
         var total = e._slotTotal || 1, slot = e._slot || 0;
-        var ratio = 0.5;
-        if (total > 1) {
-          // spread ratios within [0.30, 0.70] centered on the midpoint
-          ratio = 0.30 + (slot + 0.5) * (0.40 / total);
-        }
-        var mx = ps.x + (pt.x - ps.x) * ratio;
-        var my = ps.y + (pt.y - ps.y) * ratio;
+        var mx = (ps.x + pt.x) / 2, my = (ps.y + pt.y) / 2;
         if (total > 1) {
           var dx = pt.x - ps.x, dy = pt.y - ps.y;
           var len = Math.sqrt(dx * dx + dy * dy) || 1;
-          var nx = -dy / len, ny = dx / len;   // unit normal
-          var nudge = (slot % 2 === 0 ? 1 : -1) * 7;
-          mx += nx * nudge; my += ny * nudge;
+          // Normalize normal direction by sorted endpoints so the stack order
+          // is the same regardless of which way this edge points.
+          if (e.src > e.dst) { dx = -dx; dy = -dy; }
+          var nx = -dy / len, ny = dx / len;   // unit normal (stable)
+          var LINE = 13;                         // px per stacked label row
+          var off = (slot - (total - 1) / 2) * LINE;
+          mx += nx * off; my += ny * off;
         }
         ctx.fillText(e.predicate, mx, my);
         ctx.textBaseline = "alphabetic";

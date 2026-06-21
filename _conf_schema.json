@@ -226,6 +226,18 @@
         "description": "分层重算周期秒",
         "hint": "后台重算分层的周期（秒）。目前主要在插件启动时做一次全量重算，该值为预留配置。0 表示关闭。"
       },
+      "memory_decay_enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "启用记忆随时间衰减",
+        "hint": "后台定期对每条记忆做艾寓浩斯强度衰减并重新划分热/温/冷分层（不删除数据）。默认开启。"
+      },
+      "memory_decay_interval_seconds": {
+        "type": "float",
+        "default": 1800.0,
+        "description": "记忆衰减扫描周期（秒）",
+        "hint": "每隔多少秒跑一次衰减+重分层。默认 1800（30 分钟）。0 表示关闭。"
+      },
       "cold_archive_path": {
         "type": "string",
         "default": "",
