@@ -114,6 +114,25 @@
       (G.adj[e.dst] = G.adj[e.dst] || {})[e.src] = true;
       return { src: e.src, dst: e.dst, predicate: e.predicate || "" };
     });
+    // Parallel-edge label slots: edges between the same unordered node pair
+    // share a midpoint, so stack their labels by assigning each a slot index
+    // (0,1,2,...) and a total count for that pair. Used at draw time to fan
+    // the predicate labels out along the edge normal and avoid text overlap.
+    var pairSlots = {};
+    for (var pe = 0; pe < G.edges.length; pe++) {
+      var ed = G.edges[pe];
+      var pk = ed.src < ed.dst ? ed.src + "\u0000" + ed.dst
+                               : ed.dst + "\u0000" + ed.src;
+      var slot = pairSlots[pk] || 0;
+      ed._slot = slot;
+      pairSlots[pk] = slot + 1;
+    }
+    for (var pe2 = 0; pe2 < G.edges.length; pe2++) {
+      var ed2 = G.edges[pe2];
+      var pk2 = ed2.src < ed2.dst ? ed2.src + "\u0000" + ed2.dst
+                                  : ed2.dst + "\u0000" + ed2.src;
+      ed2._slotTotal = pairSlots[pk2] || 1;
+    }
     G.focusId = null; G.hoverId = null;
     G.cool = CFG.COOL_FRAMES;
     fitView();
@@ -204,7 +223,21 @@
         ctx.fillStyle = textCol;
         ctx.font = "9px system-ui, sans-serif";
         ctx.textAlign = "center";
-        ctx.fillText(e.predicate, (ps.x + pt.x) / 2, (ps.y + pt.y) / 2 - 2);
+        ctx.textBaseline = "middle";
+        // Fan parallel-edge labels along the edge normal so multiple
+        // relations between the same pair don't print on top of each other.
+        var mx = (ps.x + pt.x) / 2, my = (ps.y + pt.y) / 2;
+        var total = e._slotTotal || 1, slot = e._slot || 0;
+        if (total > 1) {
+          var dx = pt.x - ps.x, dy = pt.y - ps.y;
+          var len = Math.sqrt(dx * dx + dy * dy) || 1;
+          var nx = -dy / len, ny = dx / len;   // unit normal
+          var step = 12;                        // px between stacked labels
+          var off = (slot - (total - 1) / 2) * step;
+          mx += nx * off; my += ny * off;
+        }
+        ctx.fillText(e.predicate, mx, my);
+        ctx.textBaseline = "alphabetic";
       }
     }
     ctx.globalAlpha = 1;
