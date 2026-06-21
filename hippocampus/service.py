@@ -974,6 +974,16 @@ class MemoryService:
                 out["reclassified"] = True
         except Exception as ex:
             print("[hippocampus] decay-loop reclassify error: " + repr(ex))
+        try:
+            if (bool(getattr(self.cfg, "relation_decay_enabled", True))
+                    and getattr(self, "relation_store", None) is not None
+                    and self.relation_store.is_open()):
+                tau = float(getattr(self.cfg, "relation_decay_tau_seconds",
+                                    60 * 60 * 24 * 30.0))
+                rfloor = float(getattr(self.cfg, "relation_decay_floor", 0.1))
+                out["relations"] = self.relation_store.decay_pass(tau, rfloor)
+        except Exception as ex:
+            print("[hippocampus] relation decay error: " + repr(ex))
         return out
 
     def _start_decay_loop(self) -> None:

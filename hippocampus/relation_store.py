@@ -251,6 +251,53 @@ class RelationStore:
         conn.commit()
         return cur.rowcount
 
+    def decay_pass(self, tau_seconds: float, floor: float,
+                   *, half_life: bool = True) -> dict:
+        """Time-decay the confidence of active relations.
+
+        A relation not re-observed (its `updated_at` is old) loses confidence
+        exponentially: `confidence *= exp(-dt / tau)`. Relations that fall
+        below `floor` are soft-forgotten (forgotten_at set; row kept for audit
+        and never deleted). Re-observing a relation bumps updated_at and (via
+        add_with_supersede reinforce) its confidence, so live facts stay sharp
+        while stale ones fade out of the graph.
+
+        Returns {"decayed": n_updated, "forgotten": n_below_floor}.
+        """
+        import math
+        tau = max(1.0, float(tau_seconds))
+        flr = max(0.0, float(floor))
+        conn = self._ensure_conn()
+        now = _now()
+        rows = conn.execute(
+            "SELECT id, confidence, updated_at FROM llm_relations "
+            "WHERE superseded_by='' AND (forgotten_at IS NULL OR forgotten_at=0)"
+        ).fetchall()
+        decayed = 0
+        forgotten = 0
+        for row in rows:
+            d = dict(row)
+            conf = float(d.get("confidence", 0.0) or 0.0)
+            upd = float(d.get("updated_at", 0.0) or 0.0) or now
+            dt = max(0.0, now - upd)
+            if dt <= 0.0:
+                continue
+            new_conf = conf * math.exp(-dt / tau)
+            if new_conf >= conf:
+                continue
+            if new_conf < flr:
+                conn.execute(
+                    "UPDATE llm_relations SET confidence=?, forgotten_at=? WHERE id=?",
+                    (max(0.0, new_conf), now, d["id"]))
+                forgotten += 1
+            else:
+                conn.execute(
+                    "UPDATE llm_relations SET confidence=? WHERE id=?",
+                    (new_conf, d["id"]))
+            decayed += 1
+        conn.commit()
+        return {"decayed": decayed, "forgotten": forgotten}
+
     def relations_for(self, name: str, limit: int = 200) -> list:
         """Active relations where `name` is subject OR object."""
         nm = (name or "").strip().lower()

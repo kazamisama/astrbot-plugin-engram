@@ -63,6 +63,10 @@ class MemoryConfig:
     # --- v1.33: periodic memory decay + tier maintenance (default ON) ---
     memory_decay_enabled: bool = True              # run Ebbinghaus engram strength decay on the maintenance loop
     memory_decay_interval_seconds: float = 1800.0  # decay + reclassify sweep period; 0=off
+    # --- v1.34: relation confidence time-decay (default ON) ---
+    relation_decay_enabled: bool = True            # fade confidence of relations not re-observed
+    relation_decay_tau_seconds: float = 60 * 60 * 24 * 30.0  # ~30d half-ish; older relations lose confidence
+    relation_decay_floor: float = 0.1             # below this a relation is soft-forgotten (kept for audit)
     # --- v1.14: physical cold-tier archive (explicit/opt-in) ---
     cold_archive_path: str = ""            # empty => <db dir>/engram_cold_archive.jsonl.gz
     cold_archive_min_age_days: float = 60.0  # only archive cold engrams older than this

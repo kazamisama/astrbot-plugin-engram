@@ -79,6 +79,9 @@ _FIELDS: dict[str, _FieldSpec] = {
     "tier_maintenance_interval_seconds": _FieldSpec(float, (0.0, 86400.0), label_zh="分层重算周期秒", label_en="Tier maintenance interval seconds"),
     "memory_decay_enabled": _FieldSpec(bool, label_zh="启用记忆随时间衰减", label_en="Enable memory decay over time"),
     "memory_decay_interval_seconds": _FieldSpec(float, (0.0, 86400.0), label_zh="记忆衰减扫描周期秒", label_en="Memory decay sweep interval seconds"),
+    "relation_decay_enabled": _FieldSpec(bool, label_zh="启用关系置信度衰减", label_en="Enable relation confidence decay"),
+    "relation_decay_tau_seconds": _FieldSpec(float, (1.0, 31536000.0), label_zh="关系衰减时间常数秒", label_en="Relation decay tau seconds"),
+    "relation_decay_floor": _FieldSpec(float, (0.0, 1.0), label_zh="关系衰减下限（低于此遗忘）", label_en="Relation decay floor"),
     "cold_archive_path": _FieldSpec(str, label_zh="冷层归档文件路径", label_en="Cold archive path"),
     "cold_archive_min_age_days": _FieldSpec(float, (0.0, 3650.0), label_zh="冷层归档最小天龄", label_en="Cold archive min age days"),
     # v0.9

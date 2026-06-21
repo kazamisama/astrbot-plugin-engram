@@ -238,6 +238,24 @@
         "description": "记忆衰减扫描周期（秒）",
         "hint": "每隔多少秒跑一次衰减+重分层。默认 1800（30 分钟）。0 表示关闭。"
       },
+      "relation_decay_enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "启用关系置信度随时间衰减",
+        "hint": "长期未被再次提及的关系置信度会逐渐下降，跌破下限后从图谱隐去（保留历史不删）。默认开启。"
+      },
+      "relation_decay_tau_seconds": {
+        "type": "float",
+        "default": 2592000.0,
+        "description": "关系衰减时间常数（秒）",
+        "hint": "衰减的时间尺度：confidence *= exp(-间隔/tau)。默认 2592000（30 天）。越大衰减越慢。"
+      },
+      "relation_decay_floor": {
+        "type": "float",
+        "default": 0.1,
+        "description": "关系衰减下限",
+        "hint": "置信度跌到这个值以下时该关系被软遗忘（从图谱消失但保留行）。默认 0.1。"
+      },
       "cold_archive_path": {
         "type": "string",
         "default": "",
