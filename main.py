@@ -182,6 +182,16 @@ class HippocampusStar(Star):
     async def observe_message(self, event: AstrMessageEvent):
         await self._observer.handle_message(event)
 
+    # ---------- v1.31: capture QQ poke notice (litepoke alignment) ----------
+    @filter.event_message_type(filter.EventMessageType.ALL)
+    async def observe_poke(self, event: AstrMessageEvent):
+        """Record poke notices with real actor names so summaries don't lose
+        who poked whom. handle_poke self-filters to poke notices only."""
+        try:
+            await self._observer.handle_poke(event)
+        except Exception as ex:
+            print(f"[hippocampus] observe_poke error: {ex!r}")
+
     # ---------- v1.5: auto memory injection before each LLM call ----------
     @filter.on_llm_request()
     async def inject_memory(self, event: AstrMessageEvent, req):

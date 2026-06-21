@@ -208,3 +208,106 @@ class ObserveHandler:
             self._get_conv_buffer().feed(meta)
         except Exception as e:
             print(f"[hippocampus] bot observe error: {e!r}")
+
+    async def handle_poke(self, event) -> None:
+        """Capture a QQ poke notice (litepoke-style) as one named line so the
+        real actor's name reaches the summary/diary instead of being lost.
+
+        Poke is a `notice` event (no text body), so it never flows through
+        handle_message (which drops empty content). We synthesize a line like
+        "<sender> \u6233\u4e86\u6233 <target>" and route it through the same
+        daily-cache + conversation-buffer path used for ordinary messages."""
+        if self.service is None:
+            return
+        raw = getattr(getattr(event, "message_obj", None), "raw_message", None)
+        if not isinstance(raw, dict):
+            return
+        if raw.get("post_type") != "notice":
+            return
+        if raw.get("notice_type") != "notify" or raw.get("sub_type") != "poke":
+            return
+        self_id = str(raw.get("self_id", "") or "")
+        sender_id = str(raw.get("user_id", "") or "")
+        target_id = str(raw.get("target_id", "") or "")
+        group_id = str(raw.get("group_id", "") or "")
+        if not sender_id or not target_id:
+            return
+        # Resolve display names. Sender via event getter; bot side via login info.
+        sender_name = ""
+        try:
+            getter = getattr(event, "get_sender_name", None)
+            if callable(getter):
+                sender_name = (getter() or "").strip()
+        except Exception:
+            sender_name = ""
+        if not sender_name:
+            sender_name = sender_id
+        target_name = await self._resolve_poke_target_name(
+            event, target_id, self_id, group_id)
+        verb = "\u6233\u4e86\u6233"  # "poked"
+        content = sender_name + " " + verb + " " + target_name
+        cfg = getattr(self.service, "cfg", None)
+        chat_type = "group" if group_id else "private"
+        meta = {
+            "session_id": getattr(event, "unified_msg_origin", "") or "",
+            "actor_id": sender_id,
+            "platform": _call_name(event),
+            "channel_id": group_id or (getattr(event, "unified_msg_origin", "") or "default"),
+            "content": content,
+            "chat_type": chat_type,
+            "speaker": sender_name,
+            "group_id": group_id,
+            "group_name": "",
+            "is_bot": bool(self_id and sender_id == self_id),
+        }
+        if chat_type == "private":
+            meta["peer_actor_id"] = sender_id
+            meta["peer_name"] = sender_name
+        if chat_type == "group" and not meta["group_name"]:
+            try:
+                meta["group_name"] = await _resolve_group_name(event)
+            except Exception:
+                meta["group_name"] = ""
+        try:
+            self.service.cache_daily_line(meta)
+        except Exception as ce:
+            print(f"[hippocampus] poke daily cache error: {ce!r}")
+        summary_on = bool(cfg is not None and getattr(cfg, "summary_mode_enabled", False))
+        if summary_on:
+            try:
+                self._get_conv_buffer().feed(meta)
+            except Exception as e:
+                print(f"[hippocampus] poke observe error: {e!r}")
+
+    async def _resolve_poke_target_name(self, event, target_id, self_id, group_id):
+        """Best-effort display name for the poke target. Bot self -> bot
+        nickname; group member -> get_group_member_info; else the raw id."""
+        if self_id and target_id == self_id:
+            try:
+                return await _resolve_bot_name(event, target_id)
+            except Exception:
+                return target_id
+        try:
+            bot = getattr(event, "bot", None)
+            if bot is not None and group_id and hasattr(bot, "call_action"):
+                info = await bot.call_action(
+                    "get_group_member_info",
+                    group_id=int(group_id), user_id=int(target_id), no_cache=False)
+                if isinstance(info, dict):
+                    nm = (str(info.get("card") or "").strip()
+                          or str(info.get("nickname") or "").strip())
+                    if nm:
+                        return nm
+        except Exception:
+            pass
+        return target_id
+
+
+def _call_name(event):
+    try:
+        getter = getattr(event, "get_platform_name", None)
+        if callable(getter):
+            return getter() or "unknown"
+    except Exception:
+        pass
+    return "unknown"
