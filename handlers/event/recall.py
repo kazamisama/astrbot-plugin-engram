@@ -24,10 +24,14 @@ class RecallHandler:
             yield event.plain_result("Memory service not initialized.")
             return
         meta = _extract(event)
+        cfg = getattr(self.service, "cfg", None)
+        iso_on = bool(getattr(cfg, "persona_isolation_enabled", True)) if cfg else True
+        persona_scope = (meta.get("persona_id") or "") if iso_on else None
         result = self.service.recall(Cue(
             text=meta["content"] or query or "(empty)",
             actor_id=meta["actor_id"],
             channel_id=meta["channel_id"],
+            persona_id=persona_scope,
             k=5))
         if not result.engrams:
             yield event.plain_result("No memories found.")
@@ -51,9 +55,12 @@ class RecallHandler:
             yield event.plain_result(format_dual_route(self.service, query, k=5))
             return
         meta = _extract(event)
+        cfg2 = getattr(self.service, "cfg", None)
+        iso_on2 = bool(getattr(cfg2, "persona_isolation_enabled", True)) if cfg2 else True
+        persona_scope2 = (meta.get("persona_id") or "") if iso_on2 else None
         result = self.service.recall(Cue(
             text=query, actor_id=meta["actor_id"],
-            channel_id=meta["channel_id"], k=5, mode=mode))
+            channel_id=meta["channel_id"], persona_id=persona_scope2, k=5, mode=mode))
         if not result.engrams:
             yield event.plain_result("[" + mode + "] no hit for: " + query)
             return

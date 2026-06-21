@@ -42,6 +42,7 @@ class _Buffer:
             "actor_id": meta.get("actor_id", ""),
             "platform": meta.get("platform", ""),
             "channel_id": meta.get("channel_id", ""),
+            "persona_id": meta.get("persona_id", ""),
         }
         self.lines: list[str] = []
         self.first_ts = now

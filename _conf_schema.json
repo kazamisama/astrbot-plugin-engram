@@ -101,6 +101,12 @@
         "description": "注入相对时间标签",
         "hint": "自动注入记忆时，在每条记忆前加上“刚刚/3 小时前/2 天前”等中文相对时间，让 LLM 感知记忆新旧。默认开启。"
       },
+      "persona_isolation_enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "人格记忆隔离",
+        "hint": "启用后，不同人格的 bot 在同一会话/群的记忆互相隔离，召回与日记都按当前人格过滤，避免跨人格记忆污染。默认开启；关闭后所有人格共享同一会话的记忆。"
+      },
       "session_aggregate_enabled": {
         "type": "bool",
         "default": true,

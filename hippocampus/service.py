@@ -198,7 +198,7 @@ class MemoryService:
 
     # ---------- observe ----------
     def observe(self, *, session_id: str, actor_id: str, platform: str,
-                channel_id: str, content: str) -> Engram:
+                channel_id: str, content: str, persona_id: str = "") -> Engram:
         from .session_filter import SessionFilter, FilterContext, FilterVerdict
         decision = SessionFilter(self.cfg).decide(FilterContext(
             platform=platform, channel_id=channel_id,
@@ -221,7 +221,8 @@ class MemoryService:
             return denied
         e = self.encoder.encode(
             session_id=session_id, actor_id=actor_id,
-            platform=platform, channel_id=channel_id, content=content)
+            platform=platform, channel_id=channel_id, content=content,
+            persona_id=persona_id)
         e.embedding_model = self._current_embedding_name
         if getattr(self.cfg, "dedup_enabled", False):
             dup = self._find_text_duplicate(e)
@@ -295,6 +296,7 @@ class MemoryService:
             actor_id=actor_id,
             platform=identity.get("platform", "") or "",
             channel_id=identity.get("channel_id", "") or "",
+            persona_id=identity.get("persona_id", "") or "",
             content=content,
             summary=text,
             topics=list(summary.get("topics") or []),
@@ -409,7 +411,8 @@ class MemoryService:
                 peer_actor_id=meta.get("peer_actor_id", "") or "",
                 peer_name=meta.get("peer_name", "") or "",
                 session_id=meta.get("session_id", "") or "",
-                platform=meta.get("platform", "") or ""))
+                platform=meta.get("platform", "") or "",
+                persona_id=meta.get("persona_id", "") or ""))
         except Exception as ex:
             print("[hippocampus] cache_daily_line error: " + repr(ex))
 
@@ -430,6 +433,7 @@ class MemoryService:
             actor_id=actor_id,
             platform=identity.get("platform", "") or "",
             channel_id=identity.get("channel_id", "") or "",
+            persona_id=identity.get("persona_id", "") or "",
             content=content,
             summary=text,
             topics=list(diary.get("topics") or []),
@@ -481,7 +485,8 @@ class MemoryService:
                         diary_id=e.id, channel_id=e.channel_id, seq=seq,
                         text=ptext, embedding=emb,
                         embedding_model=self._current_embedding_name,
-                        ts_start=ts0, ts_end=ts1))
+                        ts_start=ts0, ts_end=ts1,
+                        persona_id=getattr(e, "persona_id", "") or ""))
                 if chunks:
                     ds.add_chunks(chunks)
             except Exception as ex:
@@ -489,7 +494,8 @@ class MemoryService:
         return e
 
     def recall_diary_chunks(self, query: str, *, top_n: int = 1,
-                            min_score: float = 0.0) -> list:
+                            min_score: float = 0.0,
+                            persona_id: str | None = None) -> list:
         """Chunk-level diary recall (B-3 req 13): embed query, score against
         stored diary chunks by cosine, return top-N chunk texts. Returns
         list[(text, score)]."""
@@ -503,7 +509,7 @@ class MemoryService:
         if not qvec:
             return []
         try:
-            chunks = ds.all_chunks(limit=2000)
+            chunks = ds.all_chunks(limit=2000, persona_id=persona_id)
         except Exception:
             return []
         scored = []
@@ -548,11 +554,11 @@ class MemoryService:
         except Exception as ex:
             print("[hippocampus] run_daily_diary channels error: " + repr(ex))
             channels = []
-        for ch in channels:
+        for ch, pid in channels:
             try:
-                t0 = resolve_cut(ds, ch, d_start, night_hours=night_h, min_gap_seconds=gap)
-                t1 = resolve_cut(ds, ch, next_start, night_hours=night_h, min_gap_seconds=gap)
-                lines = ds.lines_in_range(ch, t0, t1)
+                t0 = resolve_cut(ds, ch, d_start, night_hours=night_h, min_gap_seconds=gap, persona_id=pid)
+                t1 = resolve_cut(ds, ch, next_start, night_hours=night_h, min_gap_seconds=gap, persona_id=pid)
+                lines = ds.lines_in_range(ch, t0, t1, persona_id=pid)
                 if not lines:
                     continue
                 diary = writer.compose(lines, day_label)
@@ -564,6 +570,7 @@ class MemoryService:
                     "actor_id": first.peer_actor_id or "",
                     "platform": first.platform,
                     "channel_id": ch,
+                    "persona_id": pid,
                     "chat_type": first.chat_type,
                     "group_id": first.group_id,
                     "group_name": first.group_name,

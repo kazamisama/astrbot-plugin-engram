@@ -42,6 +42,8 @@ class InjectHandler:
             if not query:
                 return
             actor_id = meta.get("actor_id")
+            iso_on = bool(getattr(cfg, "persona_isolation_enabled", True))
+            persona_scope = (meta.get("persona_id") or "") if iso_on else None
 
             # Optional stable-background persona (v1.8). Independent of recall
             # hits: if enabled and present, it is injected as background even
@@ -66,6 +68,7 @@ class InjectHandler:
                 text=query,
                 actor_id=actor_id,
                 channel_id=meta.get("channel_id"),
+                persona_id=persona_scope,
                 memory_types=["episodic", "semantic", "prospective"],
                 k=top_k))
             engrams = getattr(result, "engrams", None) or []
@@ -109,7 +112,7 @@ class InjectHandler:
                     dtop = int(getattr(cfg, "diary_inject_top_n", 1) or 0)
                     if dtop > 0:
                         dmin = float(getattr(cfg, "diary_inject_min_score", 0.0) or 0.0)
-                        hits = svc.recall_diary_chunks(query, top_n=dtop, min_score=dmin)
+                        hits = svc.recall_diary_chunks(query, top_n=dtop, min_score=dmin, persona_id=persona_scope)
                         dlines = ["- " + t for t, _sc in hits if (t or "").strip()]
                         if dlines:
                             diary_block = "[\u4eca\u65e5\u56de\u987e]\n" + "\n".join(dlines)

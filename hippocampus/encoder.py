@@ -45,7 +45,7 @@ class EngramEncoder:
     def set_llm(self, llm: LLMProvider) -> None: self._llm = llm
 
     def encode(self, *, session_id: str, actor_id: str, platform: str,
-               channel_id: str, content: str) -> Engram:
+               channel_id: str, content: str, persona_id: str = "") -> Engram:
         text = content.strip()
         # 尝试 LLM 抽取;失败回退规则
         llm_out = self._try_llm_extract(text)
@@ -74,7 +74,7 @@ class EngramEncoder:
             importance = min(1.0, importance + 0.05 * inten)
         return Engram(
             session_id=session_id, actor_id=actor_id, platform=platform,
-            channel_id=channel_id, content=text, summary=summary,
+            channel_id=channel_id, persona_id=persona_id, content=text, summary=summary,
             topics=topics, entities=entities, importance=importance,
             embedding=emb, strength=max(importance, 0.4),
             valence=v, intensity=inten, stream=stream, temporal_bucket=tbucket,

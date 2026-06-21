@@ -17,6 +17,7 @@ class Engram:
     actor_id: str = ""
     platform: str = ""
     channel_id: str = ""
+    persona_id: str = ""        # v1.36: persona-scoped isolation
     content: str = ""
     summary: str = ""
     topics: list[str] = field(default_factory=list)
@@ -133,6 +134,7 @@ class Cue:
     text: str
     actor_id: str | None = None
     channel_id: str | None = None
+    persona_id: str | None = None
     time_range: tuple[float, float] | None = None
     topics: list[str] | None = None
     k: int = 5

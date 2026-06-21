@@ -64,6 +64,7 @@ class HippocampalStore:
               id TEXT PRIMARY KEY,
               created_at REAL, session_id TEXT, actor_id TEXT,
               platform TEXT, channel_id TEXT,
+              persona_id TEXT DEFAULT '',
               content TEXT, summary TEXT,
               topics TEXT, entities TEXT, entity_refs TEXT, tags TEXT, similar_to TEXT,
               importance REAL, strength REAL,
@@ -81,6 +82,7 @@ class HippocampalStore:
             CREATE INDEX IF NOT EXISTS idx_session ON engrams(session_id);
             CREATE INDEX IF NOT EXISTS idx_actor ON engrams(actor_id);
             CREATE INDEX IF NOT EXISTS idx_channel ON engrams(channel_id);
+            CREATE INDEX IF NOT EXISTS idx_persona ON engrams(persona_id);
             CREATE INDEX IF NOT EXISTS idx_time ON engrams(created_at);
             CREATE INDEX IF NOT EXISTS idx_type ON engrams(memory_type);
             CREATE INDEX IF NOT EXISTS idx_embmodel ON engrams(embedding_model);
@@ -223,6 +225,7 @@ class HippocampalStore:
         e.fts_text = self._build_fts_text(e)
         row = (
             e.id, e.created_at, e.session_id, e.actor_id, e.platform, e.channel_id,
+            e.persona_id,
             e.content, e.summary,
             json.dumps(e.topics, ensure_ascii=False),
             json.dumps(e.entities, ensure_ascii=False),
@@ -244,13 +247,14 @@ class HippocampalStore:
         with self._lock, self._conn:
             self._conn.execute("""
             INSERT INTO engrams(id,created_at,session_id,actor_id,platform,channel_id,
+              persona_id,
               content,summary,topics,entities,entity_refs,tags,similar_to,
               importance,strength,access_count,last_accessed,
               reconsolidation_lock_until,supersedes,embedding_json,
               memory_type,promoted_at,embedding_model,fts_text,
               valence,intensity,temporal_bucket,stream,forgotten_at,
               cluster_id,profile_fact_id,confidence,tier)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             ON CONFLICT(id) DO UPDATE SET
               content=excluded.content,
               summary=excluded.summary, topics=excluded.topics, entities=excluded.entities,
@@ -425,11 +429,13 @@ class HippocampalStore:
 
     def vector_search(self, query_vec, k: int, *,
                       actor_id: str | None = None, channel_id: str | None = None,
+                      persona_id: str | None = None,
                       memory_types: list[str] | None = None,
                       embedding_model: str | None = None):
         items = self.all(limit=10_000_000)
         if actor_id: items = [e for e in items if e.actor_id == actor_id]
         if channel_id: items = [e for e in items if e.channel_id == channel_id]
+        if persona_id is not None: items = [e for e in items if (e.persona_id or '') == persona_id]
         if memory_types: items = [e for e in items if e.memory_type in memory_types]
         if embedding_model: items = [e for e in items if e.embedding_model == embedding_model]
         scored = [(e, _cos(query_vec, e.embedding)) for e in items]
@@ -438,6 +444,7 @@ class HippocampalStore:
 
     def fts_search(self, query: str, k: int = 50, *,
                    actor_id: str | None = None, channel_id: str | None = None,
+                   persona_id: str | None = None,
                    memory_types: list[str] | None = None,
                    embedding_model: str | None = None) -> list[tuple[Engram, float]]:
         """BM25 keyword search via FTS5. Returns (engram, similarity) where
@@ -467,6 +474,7 @@ class HippocampalStore:
             if e is None: continue
             if actor_id and e.actor_id != actor_id: continue
             if channel_id and e.channel_id != channel_id: continue
+            if persona_id is not None and (e.persona_id or '') != persona_id: continue
             if memory_types and e.memory_type not in memory_types: continue
             if embedding_model and e.embedding_model != embedding_model: continue
             sim = max(0.0, min(1.0, -bm / 10.0))

@@ -103,6 +103,7 @@ class ObserveHandler:
                         "actor_id": rec.peer_actor_id or "",
                         "platform": rec.platform,
                         "channel_id": rec.channel_id,
+                        "persona_id": getattr(rec, "persona_id", "") or "",
                         "chat_type": rec.chat_type,
                         "group_id": rec.group_id,
                         "group_name": rec.group_name,
@@ -160,7 +161,8 @@ class ObserveHandler:
         summary mode is on)."""
         # session_buffer.observe expects only the core fields.
         core = {k: meta[k] for k in (
-            "session_id", "actor_id", "platform", "channel_id", "content")
+            "session_id", "actor_id", "platform", "channel_id", "content",
+            "persona_id")
             if k in meta}
         if cfg is not None and getattr(cfg, "session_aggregate_enabled", False):
             self._get_aggregator().feed(core)

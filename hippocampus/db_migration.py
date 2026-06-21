@@ -40,6 +40,9 @@ _COMPAT_MIGRATIONS: List[tuple] = [
     ("v1.13", [
         ("tier", "TEXT DEFAULT 'hot'"),
     ]),
+    ("v1.36", [
+        ("persona_id", "TEXT DEFAULT ''"),
+    ]),
 ]
 
 

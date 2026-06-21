@@ -41,6 +41,7 @@ class ConversationRecord:
     chat_type: str        # "private" | "group"
     session_id: str
     platform: str
+    persona_id: str = ""
     # identity stamps (B-1 requirement): private -> peer; group -> id+name
     peer_actor_id: str = ""     # private: who the bot talks to
     peer_name: str = ""
@@ -94,6 +95,7 @@ class _ChannelBuf:
             "chat_type": meta.get("chat_type", "") or "",
             "session_id": meta.get("session_id", "") or "",
             "platform": meta.get("platform", "") or "",
+            "persona_id": meta.get("persona_id", "") or "",
             "peer_actor_id": meta.get("peer_actor_id", "") or "",
             "peer_name": meta.get("peer_name", "") or "",
             "group_id": meta.get("group_id", "") or "",
@@ -167,7 +169,7 @@ class ConversationBuffer:
         ))
         buf.last_ts = now
         # fill late-arriving identity stamps (e.g. group_name resolved async)
-        for k in ("peer_name", "group_name", "peer_actor_id", "group_id", "session_id"):
+        for k in ("peer_name", "group_name", "peer_actor_id", "group_id", "session_id", "persona_id"):
             if not buf.meta.get(k) and meta.get(k):
                 buf.meta[k] = meta[k]
 
@@ -205,6 +207,7 @@ class ConversationBuffer:
             chat_type=buf.meta.get("chat_type", ""),
             session_id=buf.meta.get("session_id", ""),
             platform=buf.meta.get("platform", ""),
+            persona_id=buf.meta.get("persona_id", ""),
             peer_actor_id=buf.meta.get("peer_actor_id", ""),
             peer_name=buf.meta.get("peer_name", ""),
             group_id=buf.meta.get("group_id", ""),

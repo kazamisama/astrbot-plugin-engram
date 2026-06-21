@@ -177,9 +177,23 @@ class HippocampusStar(Star):
         except Exception:
             self._diary_task = None
 
+    # ---------- v1.36: persona-id stamping for memory isolation ----------
+    async def _stamp_persona(self, event) -> None:
+        """Resolve the active persona id and stamp it onto the event so the
+        synchronous _extract() can scope writes/recall by persona. Gated by
+        persona_isolation_enabled (default on); best-effort, never raises."""
+        try:
+            from handlers.persona_resolver import stamp_persona_id
+            cfg = getattr(self.service, "cfg", None) if self.service else None
+            enabled = bool(getattr(cfg, "persona_isolation_enabled", True)) if cfg else True
+            await stamp_persona_id(self.context, event, enabled=enabled)
+        except Exception as ex:
+            print("[hippocampus] persona stamp error: " + repr(ex))
+
     # ---------- event hook ----------
     @filter.event_message_type(filter.EventMessageType.ALL)
     async def observe_message(self, event: AstrMessageEvent):
+        await self._stamp_persona(event)
         await self._observer.handle_message(event)
 
     # ---------- v1.31: capture QQ poke notice (litepoke alignment) ----------
@@ -188,6 +202,7 @@ class HippocampusStar(Star):
         """Record poke notices with real actor names so summaries don't lose
         who poked whom. handle_poke self-filters to poke notices only."""
         try:
+            await self._stamp_persona(event)
             await self._observer.handle_poke(event)
         except Exception as ex:
             print(f"[hippocampus] observe_poke error: {ex!r}")
@@ -198,6 +213,7 @@ class HippocampusStar(Star):
         """Auto-inject recalled memories into req.prompt. No-op unless
         auto_inject_enabled is on; never aborts the LLM request."""
         try:
+            await self._stamp_persona(event)
             await self._inject.handle_inject(event, req)
         except Exception as ex:
             print("[hippocampus] inject_memory hook error: " + repr(ex))
@@ -216,6 +232,7 @@ class HippocampusStar(Star):
                     text = str(v)
                     break
             if text:
+                await self._stamp_persona(event)
                 await self._observer.handle_bot_message(event, text)
         except Exception as ex:
             print("[hippocampus] observe_bot_reply hook error: " + repr(ex))

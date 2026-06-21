@@ -46,6 +46,13 @@ def _extract(event: AstrMessageEvent) -> dict:
                or _call(event, "get_message_str")
                or "")
     chat_type = "group" if group_id else "private"
+    persona_id = ""
+    try:
+        ge = getattr(event, "get_extra", None)
+        if callable(ge):
+            persona_id = ge("hippo_persona_id") or ""
+    except Exception:
+        persona_id = ""
     speaker = (_call(event, "get_sender_name")
                or getattr(getattr(event, "sender", None), "nickname", None)
                or actor_id)
@@ -57,6 +64,7 @@ def _extract(event: AstrMessageEvent) -> dict:
         "content": content,
         # v1.17 B-1: conversation identity stamps
         "chat_type": chat_type,
+        "persona_id": persona_id,
         "speaker": speaker,
         "group_id": group_id,
         "group_name": "",

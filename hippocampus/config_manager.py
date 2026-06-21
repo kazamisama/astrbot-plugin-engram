@@ -138,6 +138,7 @@ _FIELDS: dict[str, _FieldSpec] = {
     "auto_inject_top_k": _FieldSpec(int, (0, 50), label_zh="自动注入条数", label_en="Auto inject top k"),
     "auto_inject_position": _FieldSpec(str, label_zh="自动注入位置", label_en="Auto inject position"),
     "auto_inject_relative_time": _FieldSpec(bool, label_zh="注入相对时间", label_en="Inject relative time label"),
+    "persona_isolation_enabled": _FieldSpec(bool, label_zh="人格记忆隔离", label_en="Persona memory isolation"),
     # v1.6 session aggregation
     "session_aggregate_enabled": _FieldSpec(bool, label_zh="启用会话聚合", label_en="Session aggregate enabled"),
     "session_aggregate_max_messages": _FieldSpec(int, (1, 100), label_zh="会话聚合最大条数", label_en="Session aggregate max messages"),

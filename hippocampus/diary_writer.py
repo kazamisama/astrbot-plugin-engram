@@ -42,6 +42,7 @@ def day_bounds(day_epoch: float) -> tuple:
 
 
 def resolve_cut(store, channel_id: str, boundary_epoch: float, *,
+                persona_id=None,
                 night_hours: float, min_gap_seconds: float) -> float:
     """Resolve the logical cut at a midnight boundary.
 
@@ -52,7 +53,7 @@ def resolve_cut(store, channel_id: str, boundary_epoch: float, *,
     """
     win_end = boundary_epoch + night_hours * 3600.0
     try:
-        cut = store.find_idle_gap(channel_id, boundary_epoch, win_end, min_gap_seconds)
+        cut = store.find_idle_gap(channel_id, boundary_epoch, win_end, min_gap_seconds, persona_id=persona_id)
     except Exception:
         cut = None
     return cut if cut is not None else boundary_epoch

@@ -144,6 +144,8 @@ class MemoryConfig:
     auto_inject_top_k: int = 3
     auto_inject_position: str = "before"
     auto_inject_relative_time: bool = True  # prefix recalled memories with a zh relative-time label
+    # --- v1.36: persona-scoped memory isolation ---
+    persona_isolation_enabled: bool = True
     # --- v1.6: per-speaker conversation aggregation (optional) ---
     session_aggregate_enabled: bool = True
     session_aggregate_max_messages: int = 5

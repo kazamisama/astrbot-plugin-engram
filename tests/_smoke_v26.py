@@ -108,7 +108,8 @@ def test_migration_idempotent_on_fresh_v14():
                 cluster_id TEXT DEFAULT '',
                 profile_fact_id TEXT DEFAULT '',
                 confidence REAL DEFAULT 0.5,
-                tier TEXT DEFAULT 'hot'
+                tier TEXT DEFAULT 'hot',
+                persona_id TEXT DEFAULT ''
             );
         """)
         from hippocampus.db_migration import run_migrations
