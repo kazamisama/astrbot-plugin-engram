@@ -256,6 +256,18 @@
         "description": "关系衰减下限",
         "hint": "置信度跌到这个值以下时该关系被软遗忘（从图谱消失但保留行）。默认 0.1。"
       },
+      "relation_forget_retention_days": {
+        "type": "float",
+        "default": 14.0,
+        "description": "关系软遗忘保留天数",
+        "hint": "被软遗忘（衰减或被取代）的关系在超过这么多天后被硬删除。默认 14 天。0 表示永不硬删（仅保留）。"
+      },
+      "profile_decay_enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "启用画像事实随时间衰减",
+        "hint": "长期未被刷新的画像事实（如“X 喜欢猫”）置信度会逐渐衰减，过低则删除。默认开启。"
+      },
       "cold_archive_path": {
         "type": "string",
         "default": "",

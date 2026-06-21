@@ -298,6 +298,20 @@ class RelationStore:
         conn.commit()
         return {"decayed": decayed, "forgotten": forgotten}
 
+    def purge_forgotten(self, retention_seconds: float) -> int:
+        """Hard-delete relations that were soft-forgotten (forgotten_at set,
+        either by decay or supersede) longer than `retention_seconds` ago.
+        Until then the row is kept for audit; after it the row is physically
+        removed. Returns the number of rows deleted."""
+        ret = max(0.0, float(retention_seconds))
+        conn = self._ensure_conn()
+        cutoff = _now() - ret
+        cur = conn.execute(
+            "DELETE FROM llm_relations WHERE forgotten_at IS NOT NULL "
+            "AND forgotten_at > 0 AND forgotten_at < ?", (cutoff,))
+        conn.commit()
+        return cur.rowcount if cur.rowcount is not None else 0
+
     def relations_for(self, name: str, limit: int = 200) -> list:
         """Active relations where `name` is subject OR object."""
         nm = (name or "").strip().lower()

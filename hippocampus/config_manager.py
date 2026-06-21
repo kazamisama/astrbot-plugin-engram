@@ -82,6 +82,8 @@ _FIELDS: dict[str, _FieldSpec] = {
     "relation_decay_enabled": _FieldSpec(bool, label_zh="启用关系置信度衰减", label_en="Enable relation confidence decay"),
     "relation_decay_tau_seconds": _FieldSpec(float, (1.0, 31536000.0), label_zh="关系衰减时间常数秒", label_en="Relation decay tau seconds"),
     "relation_decay_floor": _FieldSpec(float, (0.0, 1.0), label_zh="关系衰减下限（低于此遗忘）", label_en="Relation decay floor"),
+    "relation_forget_retention_days": _FieldSpec(float, (0.0, 3650.0), label_zh="关系软遗忘保留天数（超过后硬删）", label_en="Relation soft-forget retention days"),
+    "profile_decay_enabled": _FieldSpec(bool, label_zh="启用画像事实置信度衰减", label_en="Enable profile fact decay"),
     "cold_archive_path": _FieldSpec(str, label_zh="冷层归档文件路径", label_en="Cold archive path"),
     "cold_archive_min_age_days": _FieldSpec(float, (0.0, 3650.0), label_zh="冷层归档最小天龄", label_en="Cold archive min age days"),
     # v0.9

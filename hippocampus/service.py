@@ -984,6 +984,23 @@ class MemoryService:
                 out["relations"] = self.relation_store.decay_pass(tau, rfloor)
         except Exception as ex:
             print("[hippocampus] relation decay error: " + repr(ex))
+        # v1.34: hard-delete relations soft-forgotten longer than the retention.
+        try:
+            ret_days = float(getattr(self.cfg, "relation_forget_retention_days", 14.0))
+            if (ret_days > 0
+                    and getattr(self, "relation_store", None) is not None
+                    and self.relation_store.is_open()):
+                out["relations_purged"] = self.relation_store.purge_forgotten(
+                    ret_days * 86400.0)
+        except Exception as ex:
+            print("[hippocampus] relation purge error: " + repr(ex))
+        # v1.35: fade profile-fact confidence for stale (long-unrefreshed) facts.
+        try:
+            if (bool(getattr(self.cfg, "profile_decay_enabled", True))
+                    and getattr(self, "profile", None) is not None):
+                out["profile_facts"] = self.decay_profile()
+        except Exception as ex:
+            print("[hippocampus] profile decay error: " + repr(ex))
         return out
 
     def _start_decay_loop(self) -> None:
