@@ -78,6 +78,21 @@ class SemanticStore:
             row = cur.fetchone()
         return Entity.from_row(dict(row)) if row else None
 
+    def update_entity_type(self, entity_id: str, etype: str) -> bool:
+        """Upgrade an entity's type. Only overwrites when the new type is
+        meaningful (non-empty, not "unknown"); used by the LLM-relation
+        backfill so a previously rule-classified unknown becomes person/
+        place/... per the LLM. Returns True if a row changed."""
+        t = (etype or "").strip().lower()
+        if not t or t == "unknown":
+            return False
+        with self._lock, self._conn:
+            cur = self._conn.execute(
+                "UPDATE entities SET type=? WHERE id=? AND "
+                "(type IS NULL OR type='' OR type='unknown' OR type<>?)",
+                (t, entity_id, t))
+            return cur.rowcount > 0
+
     def search_entities(self, q: str, limit: int = 10) -> list[Entity]:
         like = "%" + q.lower() + "%"
         with self._lock, self._conn:

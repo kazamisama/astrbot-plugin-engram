@@ -324,6 +324,11 @@ class MemoryService:
             print("[hippocampus] store_summary persist error: " + repr(ex))
             return None
         # v1.19 B-2: persist structured relations with conflict-driven supersede.
+        # v1.30: LLM relations are the single source of truth. We also mirror
+        # them into SemanticStore (entities + relations) so the internal graph
+        # algorithms (spreading activation, profile, graph retrieval) and the
+        # WebUI see the SAME LLM-derived facts, with entity type taken from
+        # the LLM (fixing rule-classified "unknown").
         rels = summary.get("relations") or []
         if rels and getattr(self, "relation_store", None) is not None:
             from .relation_store import Relation
@@ -342,6 +347,7 @@ class MemoryService:
                         object_type=str(r.get("object_type", "") or "").strip())
                     if rel.subject and rel.predicate:
                         self.relation_store.add_with_supersede(rel, hysteresis=hyst)
+                        self._mirror_relation_to_semantic(rel, e)
                 except Exception as rex:
                     print("[hippocampus] relation persist error: " + repr(rex))
         return e
@@ -593,6 +599,50 @@ class MemoryService:
         except Exception as ex:
             print("[hippocampus] dedup check error: " + repr(ex))
             return None
+
+    def _mirror_relation_to_semantic(self, rel, engram) -> None:
+        """v1.30: mirror an LLM RelationStore triple into SemanticStore so
+        internal graph algorithms share the same LLM-derived facts. Upserts
+        subject/object as entities (type taken from the LLM, with rule
+        fallback) and links them with a confidence-carrying relation.
+        Best-effort: any failure is swallowed so it never blocks the primary
+        RelationStore write."""
+        if self.semantic is None:
+            return
+        try:
+            from .types import Entity, Relation as SemRelation
+            from .semantic import _classify
+
+            def _ensure(name: str, llm_type: str):
+                name = (name or "").strip()
+                if not name:
+                    return None
+                etype = (llm_type or "").strip().lower()
+                if not etype or etype == "unknown":
+                    etype = _classify(name)
+                stored = self.semantic.upsert_entity(Entity(
+                    name=name, type=etype,
+                    source_engram_ids=[engram.id],
+                    created_at=engram.created_at, last_seen=engram.created_at,
+                    mention_count=1))
+                # upsert_entity never downgrades type; upgrade unknown -> typed
+                if etype and etype != "unknown":
+                    self.semantic.update_entity_type(stored.id, etype)
+                return stored
+
+            subj = _ensure(rel.subject, getattr(rel, "subject_type", ""))
+            obj = _ensure(rel.object, getattr(rel, "object_type", ""))
+            if subj is None or obj is None:
+                return
+            self.semantic.add_relation(SemRelation(
+                subject_id=subj.id, predicate=rel.predicate,
+                object_id=obj.id, source_engram_id=engram.id,
+                confidence=float(getattr(rel, "confidence", 0.5) or 0.5),
+                created_at=engram.created_at))
+            refs = list(dict.fromkeys([*engram.entity_refs, subj.id, obj.id]))
+            engram.entity_refs = refs
+        except Exception as ex:
+            print("[hippocampus] mirror relation error: " + repr(ex))
 
     def _post_ingest(self, e: Engram, name_map: dict | None = None) -> None:
         if self.semantic is not None and self.extractor is not None:
