@@ -60,6 +60,7 @@ class PatternCompleter:
             vec = self._store.vector_search(
                 qvec, k=candidate_k,
                 actor_id=cue.actor_id, channel_id=cue.channel_id,
+                persona_id=cue.persona_id,
                 memory_types=cue.memory_types,
                 embedding_model=embedding_model)
 
@@ -67,6 +68,7 @@ class PatternCompleter:
             fts = self._store.fts_search(
                 cue.text, k=candidate_k,
                 actor_id=cue.actor_id, channel_id=cue.channel_id,
+                persona_id=cue.persona_id,
                 memory_types=cue.memory_types,
                 embedding_model=embedding_model)
 

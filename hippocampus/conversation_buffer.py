@@ -72,6 +72,17 @@ class ConversationRecord:
                 out[ln.actor_id] = nm
         return out
 
+    def bot_name(self) -> str:
+        """Latest display name the bot used in this window (its own replies).
+        Empty if the bot did not speak in this buffer."""
+        name = ""
+        for ln in self.lines:
+            if ln.is_bot:
+                nm = (ln.speaker or "").strip()
+                if nm and nm != ln.actor_id:
+                    name = nm
+        return name
+
     def transcript(self) -> str:
         """Time-ordered, speaker-labelled text for the LLM prompt."""
         out = []

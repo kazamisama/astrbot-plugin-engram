@@ -172,9 +172,50 @@ def test_webui_list_enriched():
         except Exception: pass
 
 
+def test_private_summary_both_sides():
+    """Private summary header declares both sides when bot spoke; only peer when bot silent.
+    Group header stays unchanged."""
+    from hippocampus.conversation_buffer import ConversationRecord, ConvLine
+    from hippocampus.summarizer import _build_prompt
+
+    def mk(lines, chat_type="private", peer_name="\u5c0f\u660e", peer_actor="u1",
+           group_id="", group_name=""):
+        return ConversationRecord(
+            channel_id="c1", chat_type=chat_type, session_id="s1", platform="aiocqhttp",
+            peer_actor_id=peer_actor, peer_name=peer_name,
+            group_id=group_id, group_name=group_name, lines=lines)
+
+    # case 1: private, bot spoke -> both sides
+    rec1 = mk([
+        ConvLine(actor_id="u1", speaker="\u5c0f\u660e", content="hi", ts=1.0, is_bot=False),
+        ConvLine(actor_id="bot", speaker="\u6a58\u96ea\u8389", content="yo", ts=2.0, is_bot=True),
+    ])
+    p1 = _build_prompt(rec1, 200)
+    assert "\u6211\u65b9" in p1 and "\u6a58\u96ea\u8389" in p1, p1
+    assert "\u5bf9\u65b9" in p1 and "\u5c0f\u660e" in p1, p1
+
+    # case 2: private, bot silent -> only peer
+    rec2 = mk([
+        ConvLine(actor_id="u1", speaker="\u5c0f\u660e", content="hi", ts=1.0, is_bot=False),
+    ])
+    p2 = _build_prompt(rec2, 200)
+    assert "\u6211\u65b9" not in p2, p2
+    assert "\u5bf9\u65b9" in p2 and "\u5c0f\u660e" in p2, p2
+
+    # case 3: group header unchanged (no private markers)
+    rec3 = mk([
+        ConvLine(actor_id="u1", speaker="A", content="hi", ts=1.0, is_bot=False),
+    ], chat_type="group", group_id="708947555", group_name="G")
+    p3 = _build_prompt(rec3, 200)
+    assert "\u7fa4\u804a" in p3 and "708947555" in p3, p3
+    assert "\u6211\u65b9" not in p3 and "\u79c1\u804a" not in p3, p3
+    print("[OK] private summary declares both sides; group header intact")
+
+
 if __name__ == "__main__":
     main()
     test_old_db_migration_and_index()
     test_webui_persona_edit()
     test_webui_list_enriched()
+    test_private_summary_both_sides()
     print("ALL PASS v58")

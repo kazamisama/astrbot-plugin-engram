@@ -56,7 +56,16 @@ def _build_prompt(rec, target_chars: int) -> str:
         ctx = ("[\u7fa4\u804a " + (rec.group_name or rec.group_id or rec.channel_id) +
                " (" + (rec.group_id or "") + ")]\n")
     elif rec.chat_type == "private":
-        ctx = ("[\u79c1\u804a \u5bf9\u65b9 " + (rec.peer_name or rec.peer_actor_id or "") + "]\n")
+        bot_nm = ""
+        try:
+            bot_nm = rec.bot_name()
+        except Exception:
+            bot_nm = ""
+        peer = rec.peer_name or rec.peer_actor_id or "\u5bf9\u65b9"
+        if bot_nm:
+            ctx = ("[\u79c1\u804a \u6211\u65b9 " + bot_nm + " \u5bf9\u65b9 " + peer + "]\n")
+        else:
+            ctx = ("[\u79c1\u804a \u5bf9\u65b9 " + peer + "]\n")
     return head + ctx + rec.transcript()
 
 
