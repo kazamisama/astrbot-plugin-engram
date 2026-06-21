@@ -100,6 +100,7 @@ class MemoryHandler:
             "topics": getattr(row, "topics", None) or [],
             "tags": getattr(row, "tags", None) or [],
             "tier": getattr(row, "tier", None),
+            "persona_id": getattr(row, "persona_id", None),
         })
 
     def delete_memory(self, service, eid: str,
@@ -130,7 +131,7 @@ class MemoryHandler:
 
     # v1.21 B-4: edit an engram from the WebUI. Text changes (content)
     # trigger an embedding recompute so recall stays consistent.
-    _STR_FIELDS = ("summary", "content", "memory_type", "tier")
+    _STR_FIELDS = ("summary", "content", "memory_type", "tier", "persona_id")
     _FLOAT_FIELDS = ("importance", "strength")
     _LIST_FIELDS = ("topics", "tags")
 

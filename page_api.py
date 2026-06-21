@@ -201,7 +201,8 @@ class PluginPageApi:
             # accept flat body too: pull known editable keys directly
             fields = {k: body[k] for k in (
                 "summary", "content", "memory_type", "tier",
-                "importance", "strength", "topics", "tags") if k in body}
+                "importance", "strength", "topics", "tags",
+                "persona_id") if k in body}
         return self.memory_handler.update_memory(
             self._service(), eid=eid, fields=fields)
 

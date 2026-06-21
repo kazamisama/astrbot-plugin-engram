@@ -105,7 +105,40 @@ def test_old_db_migration_and_index():
         except Exception: pass
 
 
+
+
+def test_webui_persona_edit():
+    """WebUI edit path: persona_id is editable, persisted via upsert
+    (ON CONFLICT must update it), returned in detail, and editing persona
+    alone must NOT trigger re-embedding."""
+    from page_api_modules.memory import MemoryHandler
+    from page_api_modules.utils import PageApiUtils
+    fd, db = tempfile.mkstemp(suffix=".db"); os.close(fd)
+    svc = _mk(db)
+    h = MemoryHandler(PageApiUtils())
+    try:
+        e = svc.observe(session_id="s", actor_id="a", platform="qq",
+                        channel_id="c", content="memory note here", persona_id="")
+        r = h.update_memory(svc, eid=e.id, fields={"persona_id": "shelly"})
+        data = r.get("data", r)
+        assert svc.store.get(e.id).persona_id == "shelly", svc.store.get(e.id).persona_id
+        assert "persona_id" in data.get("changed", []), data
+        assert data.get("reembedded") in (False, None), ("persona edit must not re-embed", data)
+        d = h.get_memory_detail(svc, eid=e.id)
+        dd = d.get("data", d)
+        assert dd.get("persona_id") == "shelly", dd.get("persona_id")
+        h.update_memory(svc, eid=e.id, fields={"persona_id": ""})
+        assert svc.store.get(e.id).persona_id == "", svc.store.get(e.id).persona_id
+        print("[OK] WebUI persona_id edit set/clear + detail + no-reembed")
+    finally:
+        try: svc.close()
+        except Exception: pass
+        try: os.remove(db)
+        except Exception: pass
+
+
 if __name__ == "__main__":
     main()
     test_old_db_migration_and_index()
+    test_webui_persona_edit()
     print("ALL PASS v58")

@@ -91,7 +91,8 @@
     mode: "模式",
     topics: "话题",
     tags: "标签",
-    tier: "分层"
+    tier: "分层",
+    persona_id: "关联人格"
   };
   function fieldLabel(k) { return FIELD_LABELS[k] || k; }
 
@@ -276,6 +277,7 @@
       sliderField("ed-strength", "记忆强度", d.strength) +
       field("ed-topics", "话题 (逗号分隔)", (d.topics || []).join("、"), "text") +
       field("ed-tags", "标签 (逗号分隔)", (d.tags || []).join("、"), "text") +
+      field("ed-persona", "关联人格", d.persona_id, "text") +
       selectField("ed-tier", "记忆分层", d.tier,
         ["", "hot", "warm", "cold"], TIER_LABELS) +
       '<div class="edit-actions">' +
@@ -298,7 +300,8 @@
       strength: document.getElementById("ed-strength").value,
       topics: document.getElementById("ed-topics").value,
       tags: document.getElementById("ed-tags").value,
-      tier: document.getElementById("ed-tier").value
+      tier: document.getElementById("ed-tier").value,
+      persona_id: document.getElementById("ed-persona").value
     };
     try {
       var r = unwrap(await apiPost("page/memories/update", { eid: eid, fields: fields }));
