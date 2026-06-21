@@ -107,7 +107,17 @@ class GraphHandler:
         truncated = len(nodes) > cap
         nodes = nodes[:cap]
         keep = {n["name"].strip().lower() for n in nodes}
-        edges = []
+        # Per-pair edge cap: between any unordered entity pair, keep only the
+        # top-N relations by confidence (configurable, default 4). Avoids a
+        # dense pile of overlapping labels on the same midpoint.
+        cfg = getattr(service, "cfg", None)
+        try:
+            pair_cap = int(getattr(cfg, "graph_max_relations_per_pair", 4) or 4)
+        except Exception:
+            pair_cap = 4
+        if pair_cap < 1:
+            pair_cap = 1
+        by_pair: dict[tuple, list] = {}
         for r in rels:
             s = (r.subject or "").strip().lower()
             o = (r.object or "").strip().lower()
@@ -115,11 +125,19 @@ class GraphHandler:
                 continue
             if s not in keep or o not in keep:
                 continue
-            edges.append({
-                "src": _eid(r.subject),
-                "dst": _eid(r.object),
-                "predicate": r.predicate or "",
-            })
+            pk = (s, o) if s < o else (o, s)
+            by_pair.setdefault(pk, []).append(r)
+        edges = []
+        for pk, group in by_pair.items():
+            group.sort(key=lambda x: float(getattr(x, "confidence", 0.0) or 0.0),
+                       reverse=True)
+            for r in group[:pair_cap]:
+                edges.append({
+                    "src": _eid(r.subject),
+                    "dst": _eid(r.object),
+                    "predicate": r.predicate or "",
+                    "confidence": float(getattr(r, "confidence", 0.0) or 0.0),
+                })
         return self.utils.ok({
             "nodes": nodes,
             "edges": edges,

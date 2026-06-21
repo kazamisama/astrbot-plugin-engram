@@ -117,6 +117,7 @@ _FIELDS: dict[str, _FieldSpec] = {
     # v1.4 B3
     "enable_atom_extraction": _FieldSpec(bool, label_zh="启用 atom 抽取", label_en="Enable atom extraction"),
     "enable_graph_indexing": _FieldSpec(bool, label_zh="启用图索引", label_en="Enable graph indexing"),
+    "graph_max_relations_per_pair": _FieldSpec(int, (1, 50), label_zh="图谱每对实体最多显示关系数", label_en="Graph max relations per entity pair"),
     "atom_decay_interval_seconds": _FieldSpec(float, (0.0, 86400.0), label_zh="atom 衰减间隔", label_en="Atom decay interval (s)"),
     "atom_gc_interval_seconds": _FieldSpec(float, (0.0, 86400.0), label_zh="atom gc 间隔", label_en="Atom gc interval (s)"),
     # --- v1.4.x B10: backup + migration ---

@@ -250,6 +250,12 @@
         "description": "关系注入最低置信",
         "hint": "低于该置信度的关系不注入（0-1）。"
       },
+      "graph_max_relations_per_pair": {
+        "type": "int",
+        "default": 4,
+        "description": "图谱每对实体最多显示关系数",
+        "hint": "同一对实体之间只显示置信度最高的前 N 条关系，避免标签在连线中点堆叠。默认 4。"
+      },
       "relation_supersede_hysteresis": {
         "type": "float",
         "default": 0.0,

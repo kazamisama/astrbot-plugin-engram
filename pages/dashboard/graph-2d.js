@@ -224,17 +224,23 @@
         ctx.font = "9px system-ui, sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        // Fan parallel-edge labels along the edge normal so multiple
-        // relations between the same pair don't print on top of each other.
-        var mx = (ps.x + pt.x) / 2, my = (ps.y + pt.y) / 2;
+        // Multiple relations between the same entity pair share an edge, so
+        // distribute their labels at different ratios ALONG the edge (and a
+        // small normal nudge) instead of stacking them on the midpoint.
         var total = e._slotTotal || 1, slot = e._slot || 0;
+        var ratio = 0.5;
+        if (total > 1) {
+          // spread ratios within [0.30, 0.70] centered on the midpoint
+          ratio = 0.30 + (slot + 0.5) * (0.40 / total);
+        }
+        var mx = ps.x + (pt.x - ps.x) * ratio;
+        var my = ps.y + (pt.y - ps.y) * ratio;
         if (total > 1) {
           var dx = pt.x - ps.x, dy = pt.y - ps.y;
           var len = Math.sqrt(dx * dx + dy * dy) || 1;
           var nx = -dy / len, ny = dx / len;   // unit normal
-          var step = 12;                        // px between stacked labels
-          var off = (slot - (total - 1) / 2) * step;
-          mx += nx * off; my += ny * off;
+          var nudge = (slot % 2 === 0 ? 1 : -1) * 7;
+          mx += nx * nudge; my += ny * nudge;
         }
         ctx.fillText(e.predicate, mx, my);
         ctx.textBaseline = "alphabetic";

@@ -116,6 +116,8 @@ class MemoryConfig:
     enable_atom_extraction: bool = True
     # --- v1.4 B4: graph fast-path (mirror entity_refs into GraphStore) ---
     enable_graph_indexing: bool = True
+    # --- v1.31: WebUI graph rendering ---
+    graph_max_relations_per_pair: int = 4  # cap relations shown between one entity pair (top-N by confidence)
     # --- v1.4 B3: background maintenance loops ---
     # 0 = disabled. Caller is expected to call run_decay() / run_gc()
     # manually, or to invoke MemoryService.start_background_tasks().
