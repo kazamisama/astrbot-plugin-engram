@@ -5,31 +5,33 @@
 把整个 `hippocampus/` 核心包打包进来,**自包含**,不依赖任何外部 Python 包。
 仅依赖 AstrBot 本体(`astrbot.api`)。
 
-> v1.43+: 仓库更名为 `astrbot-plugin-engram-core`。**插件 ID（`astrbot_plugin_engram`）保持不变**——它绑定在 `metadata.yaml` 的 `name` 上，AstrBot 用它来注册/加载插件实例；改了会破坏现存部署。import 路径、API、SQLite schema 也都不变，只是仓库名多了 `-core` 后缀。
+> v1.43+: 仓库更名为 `astrbot-plugin-engram-core`。
+> v1.48+: 插件 ID 也从 `astrbot_plugin_engram` 改为 `astrbot_plugin_engram_core` —— 旧名跟另一个 AstrBot 插件撞了，会污染注册表、阻断更新。**这次改名是 breaking**：Web 路由前缀从 `/astrbot_plugin_engram/page` 变成 `/astrbot_plugin_engram_core/page`；从 v1.47 之前升级需要在 AstrBot 卸载旧条目再装一次（详见下方部署一节）。import 路径、API、SQLite schema 不变。
 
 ## 命名约定
 
-本项目里有三层名字,各指不同层级。**仓库名**是 GitHub 上的目录,跟**插件 ID / Python 模块名**是两码事;核心包与单条记忆术语沿用神经科学隐喻,**不需要也不应该改**:
+本项目里有三层名字,各指不同层级;**仓库名、插件 ID / Python 模块名、显示名**三层是各自独立的标识符:
 
 | 名字 | 指什么 | 出现位置 |
 | --- | --- | --- |
-| `astrbot-plugin-engram-core` | **仓库名**(自 v1.43 起) | GitHub 仓库 URL、README 标题、推荐部署目录 `data/plugins/astrbot-plugin-engram-core/` |
-| `astrbot_plugin_engram` | **插件 ID + Python 模块名**（**不随仓库改名**） | `metadata.yaml` 的 `name:`、`from astrbot_plugin_engram import ...`、`AstrBot WebUI 插件管理`里看到的名字 |
+| `astrbot-plugin-engram-core` | **仓库名** (自 v1.43) | GitHub 仓库 URL、README 标题、推荐部署目录 `data/plugins/astrbot-plugin-engram-core/` |
+| `astrbot_plugin_engram_core` | **插件 ID + Python 模块名** (自 v1.48) | `metadata.yaml` 的 `name:`、Web 路由前缀 `/astrbot_plugin_engram_core/page/*`、AstrBot 注册表里的 key |
+| `Engram 海马体记忆` | **显示名** (v1.48 改回无 `_core`) | AstrBot WebUI 插件管理里看到的标题 |
 | `hippocampus`(海马体) | 内嵌的**核心包名** | `hippocampus/` 目录、`from hippocampus import ...` |
 | `engram`(记忆痕迹) | 框架里**单条记忆**的领域术语 | 命令文案、导出 JSON 字段、banner 统计 |
 
-简单说:`hippocampus` 是"系统/包",`engram` 是"系统里的一条记忆"——两者是**整体与单元**的关系,不是同义词。**插件 ID（`astrbot_plugin_engram`）和 Web 路由前缀（`/astrbot_plugin_engram/page`）保持稳定**，对外品牌在 AstrBot 内部仍以 `engram` 出现;只有 GitHub 仓库名和部署目录加了 `-core` 后缀。从 v1.43 之前的旧版本升级时,把仓库克隆到 `data/plugins/astrbot-plugin-engram-core/` 即可,SQLite 数据库位置 `data/hippocampus.db` 不会受影响。
+简单说:`hippocampus` 是"系统/包",`engram` 是"系统里的一条记忆"——两者是**整体与单元**的关系,不是同义词。
 
 ## 目录
 
 ```
 astrbot-plugin-engram-core/     # 仓库根即插件目录(扁平布局)
-  metadata.yaml                 # AstrBot 插件元数据(name: astrbot_plugin_engram)
+  metadata.yaml                 # AstrBot 插件元数据(name: astrbot_plugin_engram_core)
   _conf_schema.json             # 配置 schema(给 AstrBot 配置 UI 用)
   requirements.txt              # 零依赖
-  main.py                       # 插件入口(直接 import astrbot)
+  main.py                       # 插件入口
   hippocampus/                  # 核心包(已嵌入,自包含)
-  tests/                        # 烟测(_smoke_v08~v61,独立运行,不随插件加载)
+  tests/                        # 烟测(_smoke_v08~v63,独立运行,不随插件加载)
   README.md                     # 本文件
 ```
 
@@ -45,17 +47,26 @@ astrbot-plugin-engram-core/     # 仓库根即插件目录(扁平布局)
 
 ## 部署
 
-把整个仓库克隆/复制到 AstrBot 的 `data/plugins/` 下,目录名建议 `astrbot-plugin-engram-core/`（与仓库名一致）。从 v1.43 之前的旧版本升级时:
+把整个仓库克隆到 AstrBot 的 `data/plugins/astrbot-plugin-engram-core/` 下。
 
-- 旧部署目录 `data/plugins/astrbot-plugin-engram/` 可以保留(AstrBot 按 `metadata.yaml` 的 `name` 加载,不挑目录名),但建议改成 `-core` 后跟 README 头部一致;
-- SQLite 数据库文件 `data/hippocampus.db` 跟目录名解耦,**无需迁移**;
-- 已存在的 WebUI 路由 `/astrbot_plugin_engram/page/*` 仍然有效(插件 ID 没变)。
+### 从 v1.47 之前升级
 
-AstrBot 启动时会自动扫描 `data/plugins/*/metadata.yaml` 加载本插件。
+v1.48 改了 plugin ID，**这是 breaking 升级**：
+
+1. 在 AstrBot → 插件管理里 **卸载**旧条目（保留 `data/hippocampus.db`）。
+2. 把仓库克隆/复制到 `data/plugins/astrbot-plugin-engram-core/`。
+3. 重启 AstrBot → 新条目以 `Engram 海马体记忆` 显示，ID 是 `astrbot_plugin_engram_core`。
+4. SQLite 数据库文件 `data/hippocampus.db` 目录没变，**无需迁移**。
+5. 已存在的 WebUI 路由 `/astrbot_plugin_engram/page/*` 全部作废；新路径是 `/astrbot_plugin_engram_core/page/*`。如果 WebUI 仪表盘里收藏了链接，需要刷新页面或重新点一次导航。
+6. `/mem recall` 等命令的语义和参数都不变。
+
+### 从 v1.43–v1.47 升级（只换仓库名、没换 ID 的版本）
+
+升级路径同 v1.44：旧目录 `data/plugins/astrbot-plugin-engram/` 可以保留（AstrBot 按 `metadata.yaml` 的 `name` 加载，不挑目录名），但建议改成 `-core` 后缀以便对齐。
 
 ## 配置
 
-在 AstrBot WebUI → 插件管理 → **astrbot_plugin_engram** → 配置 里改(插件名按 ID 显示,不跟仓库名带 `-core` 后缀):
+在 AstrBot WebUI → 插件管理 → **Engram 海马体记忆** → 配置 里改。
 
 | 字段 | 默认 | 含义 |
 |---|---|---|
@@ -299,7 +310,7 @@ python tests/_smoke_v13.py
 
 ## 版本说明
 
-命名关系见顶部「命名约定」一节。一句话:**仓库发布名是 `astrbot-plugin-engram-core`(自 v1.43 起),插件 ID 仍是 `astrbot_plugin_engram`**,内嵌核心包仍叫 `hippocampus/`,**改名不换内核**——目录结构、import 路径、API、SQLite schema 都不动。
+命名关系见顶部「命名约定」一节。一句话:**仓库名是 `astrbot-plugin-engram-core`(自 v1.43),插件 ID 是 `astrbot_plugin_engram_core`(自 v1.48,因 ID 撞名),显示名是 `Engram 海马体记忆`(v1.48 改回无 `_core`)**,内嵌核心包仍叫 `hippocampus/`,**改名不换内核**——目录结构、SQLite schema、API 都不动。
 
 ## v1.3 已 ship
 

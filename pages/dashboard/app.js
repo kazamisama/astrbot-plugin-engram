@@ -3,7 +3,7 @@
  * (window.AstrBotPluginPage). AstrBot injects the bridge-sdk <script>
  * just before </body>, i.e. AFTER this file runs, so we never cache the
  * bridge at parse time: read it live on each use and wait for it on init.
- * Backend routes live under /astrbot_plugin_engram/page/* (page_api.py);
+ * Backend routes live under /astrbot_plugin_engram_core/page/* (page_api.py);
  * the bridge prefixes "/<plugin_name>/", so we pass "page/xxx".
  */
 (function () {

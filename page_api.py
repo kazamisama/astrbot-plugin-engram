@@ -10,7 +10,7 @@ AstrBot invokes registered handlers as `await view_handler(**path_vars)`
 or JSON body to the callable, so every handler here is an async wrapper
 that reads parameters from `quart.request` directly.
 
-API prefix: /astrbot_plugin_engram/page
+API prefix: /astrbot_plugin_engram_core/page
 Endpoints:
   GET  /health           -> {version, language, service_ready}
   GET  /stats            -> {engrams, fts, entities, atoms, ...}
@@ -46,7 +46,12 @@ from page_api_modules import (
     DiaryHandler,
 )
 
-PLUGIN_NAME = "astrbot_plugin_engram"
+# FIX (v1.48): renamed to match metadata.yaml: name (was
+# astrbot_plugin_engram; collided with another plugin in the
+# AstrBot registry and broke plugin updates). The URL prefix below
+# is derived from this constant, so every /astrbot_plugin_engram_core/page
+# path now points at THIS plugin, no ambiguity.
+PLUGIN_NAME = "astrbot_plugin_engram_core"
 PAGE_API_PREFIX = f"/{PLUGIN_NAME}/page"
 
 

@@ -1,4 +1,4 @@
-"""astrbot_plugin_engram entry.
+"""astrbot_plugin_engram_core entry.
 
 AstrBot loads via: from main import <registered class> so this file
 must be importable when astrbot.api is on path.

@@ -3,7 +3,7 @@
 Scope:
 - page_api.py + 5 page_api_modules/ (utils + stats + memory + recall + graph)
 - PluginPageApi.register_routes() registers 8 endpoints with prefix
-  /astrbot_plugin_engram_core/page/{health,stats,memories,memories/detail,
+  /astrbot_plugin_engram/page/{health,stats,memories,memories/detail,
    memories/delete,recall/test,graph/overview,graph/query}
 - _conf_schema.json: 15 fields (was 14), bot_language at top;
   descriptions sourced from ConfigManager.LABELS.en (B7+B9 link)
@@ -111,21 +111,21 @@ def test_register_routes_8_endpoints():
     assert len(calls) == 15, "expected 15 endpoints, got " + str(len(calls))  # +3 graph entity/relation ops (v1.28)
     paths = [c[0] for c in calls]
     expected_paths = [
-        "/astrbot_plugin_engram_core/page/health",
-        "/astrbot_plugin_engram_core/page/stats",
-        "/astrbot_plugin_engram_core/page/memories",
-        "/astrbot_plugin_engram_core/page/memories/detail",
-        "/astrbot_plugin_engram_core/page/memories/delete",
-        "/astrbot_plugin_engram_core/page/memories/update",
-        "/astrbot_plugin_engram_core/page/recall/test",
-        "/astrbot_plugin_engram_core/page/graph/overview",
-        "/astrbot_plugin_engram_core/page/graph/data",
-        "/astrbot_plugin_engram_core/page/graph/query",
-        "/astrbot_plugin_engram_core/page/graph/entity/delete",
-        "/astrbot_plugin_engram_core/page/graph/relation/delete",
-        "/astrbot_plugin_engram_core/page/graph/relation/update",
-        "/astrbot_plugin_engram_core/page/backups",
-        "/astrbot_plugin_engram_core/page/backups/restore",
+        "/astrbot_plugin_engram/page/health",
+        "/astrbot_plugin_engram/page/stats",
+        "/astrbot_plugin_engram/page/memories",
+        "/astrbot_plugin_engram/page/memories/detail",
+        "/astrbot_plugin_engram/page/memories/delete",
+        "/astrbot_plugin_engram/page/memories/update",
+        "/astrbot_plugin_engram/page/recall/test",
+        "/astrbot_plugin_engram/page/graph/overview",
+        "/astrbot_plugin_engram/page/graph/data",
+        "/astrbot_plugin_engram/page/graph/query",
+        "/astrbot_plugin_engram/page/graph/entity/delete",
+        "/astrbot_plugin_engram/page/graph/relation/delete",
+        "/astrbot_plugin_engram/page/graph/relation/update",
+        "/astrbot_plugin_engram/page/backups",
+        "/astrbot_plugin_engram/page/backups/restore",
     ]
     assert paths == expected_paths, "paths: " + str(paths)
     print("  15 endpoints registered with correct paths (+3 graph entity/relation ops): OK")
