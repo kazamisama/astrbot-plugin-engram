@@ -62,13 +62,31 @@ async def resolve_persona_id(context, event) -> str:
 
 async def stamp_persona_id(context, event, *, enabled: bool) -> str:
     """Resolve + stamp persona id onto the event. Returns the id ("" if
-    disabled/unknown). Safe to call from any hook."""
+    disabled/unknown). Safe to call from any hook.
+
+    FIX (v1.45): idempotent. The observe_message and observe_bot_reply
+    hooks in main.py both call this for the same event, and each call
+    used to re-resolve + overwrite the extra. If the conversation
+    state changed between calls (e.g. persona flipped to the
+    "[%None]" sentinel in tier 2, a /persona command mutated
+    session_service_config, or the first set_extra raised and only the
+    second one landed) the user message and the bot reply would land
+    in different daily_messages persona buckets, producing two
+    diaries per session per day. Now we read the extra first; if it
+    is already set to any value (including ""), we return that value
+    verbatim. First hook wins; subsequent hooks are no-ops.
+    """
     if not enabled:
-        try:
-            event.set_extra(EXTRA_KEY, "")
-        except Exception:
-            pass
         return ""
+    # Idempotent: honour an existing stamp instead of re-resolving.
+    try:
+        ge = getattr(event, "get_extra", None)
+        if callable(ge):
+            existing = ge(EXTRA_KEY)
+            if existing is not None:
+                return str(existing)
+    except Exception:
+        pass
     pid = await resolve_persona_id(context, event)
     try:
         event.set_extra(EXTRA_KEY, pid)
