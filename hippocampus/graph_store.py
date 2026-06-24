@@ -163,6 +163,45 @@ class GraphStore:
             ).fetchall()
         return [(r["engram_id"], float(r["weight"])) for r in rows]
 
+    def engrams_for_batch(self, entity_ids, limit_per_entity: int = 64):
+        """Batch reverse lookup: one SQL query for N entities.
+
+        Returns {entity_id: [(engram_id, weight), ...]} with at most
+        `limit_per_entity` entries per entity, ordered by weight desc.
+        Entities with no refs map to an empty list. Empty input returns {}.
+
+        The INNER JOIN against engrams filters out soft-forgotten rows
+        (forgotten_at > 0) at the SQL layer, so callers do not need to
+        recheck. Replaces the O(N_engrams) Python scan that the legacy
+        SpreadingActivation neighbor expansion used to do.
+        """
+        out = {eid: [] for eid in entity_ids}
+        if not entity_ids:
+            return out
+        # Dedupe defensively; SQL IN can balloon with duplicates.
+        uniq = list(dict.fromkeys(entity_ids))
+        placeholders = ",".join("?" * len(uniq))
+        with self._lock:
+            rows = self._conn.execute(
+                f"""
+                SELECT r.entity_id, r.engram_id, r.weight
+                FROM graph_engram_refs r
+                JOIN engrams e ON e.id = r.engram_id
+                WHERE r.entity_id IN ({placeholders})
+                  AND e.forgotten_at = 0
+                ORDER BY r.entity_id, r.weight DESC
+                """,
+                uniq,
+            ).fetchall()
+        per_count = {eid: 0 for eid in uniq}
+        for r in rows:
+            eid = r["entity_id"]
+            if per_count.get(eid, 0) >= limit_per_entity:
+                continue
+            out[eid].append((r["engram_id"], float(r["weight"])))
+            per_count[eid] = per_count.get(eid, 0) + 1
+        return out
+
     def all_relations(self) -> list[Relation]:
         """Read every relation from the legacy relations table. Used by
         rebuild_from_semantic() and by retriever explain() paths."""

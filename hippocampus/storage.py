@@ -308,6 +308,58 @@ class HippocampalStore:
                 (after_id, int(limit)))
             return [Engram.from_row(dict(r)) for r in cur.fetchall()]
 
+    def recent_for_actor(self, actor_id: str, k: int = 5,
+                          min_strength: float = 0.0,
+                          include_forgotten: bool = False) -> list:
+        """Return up to k engrams for an actor, newest-first by last_accessed.
+
+        Filters out soft-forgotten engrams by default. Used as context
+        seeds for SpreadingActivation so the user's recently touched
+        high-strength items pre-excite the recall graph (analogous to
+        hippocampal pre-excitation bias on engram cell allocation).
+        """
+        if not actor_id:
+            return []
+        params = [actor_id]
+        forgotten_clause = "" if include_forgotten else " AND forgotten_at = 0 "
+        sql = "SELECT * FROM engrams WHERE actor_id = ?" + forgotten_clause
+        if min_strength > 0:
+            sql += " AND strength >= ?"
+            params.append(float(min_strength))
+        sql += " ORDER BY last_accessed DESC LIMIT ?"
+        params.append(int(k))
+        with self._lock, self._conn:
+            cur = self._conn.execute(sql, params)
+            return [Engram.from_row(dict(r)) for r in cur.fetchall()]
+
+    def top_by_importance(self, min_importance: float = 0.5,
+                          k: int = 5,
+                          actor_id=None,
+                          include_forgotten: bool = False) -> list:
+        """Return up to k high-importance active engrams. Used as pre-
+        excitation seeds in SpreadingActivation (engram cell allocation
+        bias). If actor_id is given, restricts to that actor; otherwise
+        returns the global top-k. Soft-forgotten engrams are excluded
+        by default.
+        """
+        params = []
+        clauses = ["importance >= ?"]
+        params.append(float(min_importance))
+        if not include_forgotten:
+            clauses.append("forgotten_at = 0")
+        if actor_id:
+            clauses.append("actor_id = ?")
+            params.append(actor_id)
+        where = " AND ".join(clauses)
+        sql = (
+            f"SELECT * FROM engrams WHERE {where} "
+            f"ORDER BY importance DESC, strength DESC LIMIT ?"
+        )
+        params.append(int(k))
+        with self._lock, self._conn:
+            cur = self._conn.execute(sql, params)
+            return [Engram.from_row(dict(r)) for r in cur.fetchall()]
+
     def update_embedding(self, eid: str, embedding: list[float], model: str) -> None:
         with self._lock, self._conn:
             self._conn.execute(

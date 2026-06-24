@@ -131,6 +131,9 @@ class MemoryService:
             try:
                 from .graph_store import GraphStore as _GraphStore
                 self.graph_store = _GraphStore(self.cfg.sqlite_path)
+                # v1.42: wire graph_store into SpreadingActivation
+                if self.activation is not None:
+                    self.activation._graph = self.graph_store
             except Exception:
                 self.graph_store = None
         if self.atom_lifecycle is None and self.atom_store is not None:
@@ -1377,25 +1380,27 @@ class MemoryService:
             return {}
 
     def recall_with_activation(self, cue, *, seeds=None):
-        res = self.recall(cue)
-        if self.activation is None or not res.engrams:
-            return res
-        # Explicit seeds win; otherwise fall back to cue.topics for backward compat.
-        seed_list = list(seeds) if seeds is not None else list(getattr(cue, "topics", None) or [])
-        try:
-            acts = self.activation.activate(seed_list)
-            engram_acts = self.activation.engram_activation(acts)
-            for i, e in enumerate(res.engrams):
-                a = float(engram_acts.get(e.id, 0.0))
-                res.scores[i] = res.scores[i] + self.cfg.activation_score_weight * a
-        except Exception:
-            pass
-        pairs = sorted(zip(res.engrams, res.scores), key=lambda p: p[1], reverse=True)
-        if pairs:
-            res.engrams, res.scores = list(zip(*pairs))
-            res.engrams = list(res.engrams)
-            res.scores = list(res.scores)
-        return res
+        # v1.42: activate_with_context seeds from entities + recency + importance
+        if self.activation is not None and self.semantic is not None:
+            try:
+                matched = []
+                if seeds:
+                    for s in (list(seeds) if seeds else []):
+                        ent = self.semantic.find_entity_by_name(s)
+                        if ent is not None:
+                            matched.append(ent.id)
+                act_map = self.activation.activate_with_context(
+                    matched_entity_ids=matched,
+                    actor_id=cue.actor_id if hasattr(cue, 'actor_id') else None,
+                    depth=self.cfg.activation_max_depth,
+                    decay=self.cfg.activation_decay,
+                    floor=self.cfg.activation_floor,
+                )
+                if act_map:
+                    cue.activation = act_map
+            except Exception:
+                pass
+        return self.recall(cue)
 
     def force_consolidate(self):
         try:

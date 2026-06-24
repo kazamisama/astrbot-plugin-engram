@@ -34,10 +34,15 @@ W_ENGRAM_SIMILAR = 0.6
 
 class SpreadingActivation:
     def __init__(self, semantic_store: SemanticStore, store: HippocampalStore,
-                 cfg: MemoryConfig) -> None:
+                 cfg: MemoryConfig, graph_store=None) -> None:
         self._sem = semantic_store
         self._store = store
         self._cfg = cfg
+        # v1.42: optional GraphStore for batch entity->engram lookups.
+        # Falls back to the legacy O(N) scan when None so old callers
+        # keep working. New code (service.recall path) should pass it
+        # or assign it after lazy graph_store initialization.
+        self._graph = graph_store
 
     # ---------- public ----------
     def activate(self, seeds: Iterable[str], *, depth: int | None = None,
@@ -102,6 +107,74 @@ class SpreadingActivation:
             lines.append("  " + tag + " " + name + "  act=" + str(round(act, 3)))
         return lines
 
+    # ---------- v1.42: context-aware activation ----------
+    def build_context_seeds(self, *, matched_entity_ids=None, actor_id=None,
+                            high_importance_count: int = 5,
+                            recent_count: int = 3,
+                            recent_min_strength: float = 0.5) -> list:
+        """Build a list of seed node keys for activate(), incorporating
+        three signal sources:
+
+        1. Explicit entity matches (from the graph retriever); primary
+           signal; activation_seed = 1.0.
+        2. The user's recently accessed high-strength engrams; context
+           signal; pre-excites items the user has been thinking about
+           recently. Maps to hippocampal pre-excitation bias on engram
+           cell allocation.
+        3. The user's (or global) high-importance engrams; personal
+           priors; surfaced after context seeds but still fire.
+
+        Returns a list of 'e:<id>' and 'n:<id>' keys ready to feed
+        activate(). Empty if nothing matches.
+        """
+        seeds: list = []
+        for eid in (matched_entity_ids or []):
+            if eid:
+                seeds.append(E_PREFIX + eid)
+        if actor_id and recent_count > 0:
+            try:
+                recent = self._store.recent_for_actor(
+                    actor_id, k=recent_count, min_strength=recent_min_strength)
+            except Exception:
+                recent = []
+            for e in recent:
+                seeds.append(N_PREFIX + e.id)
+        if high_importance_count > 0:
+            try:
+                top = self._store.top_by_importance(
+                    min_importance=self._cfg.importance_floor_for_long_term,
+                    k=high_importance_count,
+                    actor_id=actor_id,
+                )
+            except Exception:
+                top = []
+            for e in top:
+                key = N_PREFIX + e.id
+                if key not in seeds:
+                    seeds.append(key)
+        return seeds
+
+    def activate_with_context(self, *, matched_entity_ids=None, actor_id=None,
+                              depth=None, decay=None, floor=None,
+                              high_importance_count: int = 5,
+                              recent_count: int = 3) -> dict:
+        """One-shot helper: build context seeds, run activation, return
+        the engram-only activation map (id -> [0,1]).
+
+        Designed to be called from the main recall path right before
+        PatternCompleter.recall(); the result drops into cue.activation.
+        """
+        seeds = self.build_context_seeds(
+            matched_entity_ids=matched_entity_ids,
+            actor_id=actor_id,
+            high_importance_count=high_importance_count,
+            recent_count=recent_count,
+        )
+        if not seeds:
+            return {}
+        acts = self.activate(seeds, depth=depth, decay=decay, floor=floor)
+        return self.engram_activation(acts)
+
     # ---------- internals ----------
     def _resolve_seed(self, s: str) -> str | None:
         if not s:
@@ -140,7 +213,20 @@ class SpreadingActivation:
                 out.append((E_PREFIX + r.object_id, max(0.1, float(r.confidence)) * W_RELATION))
             elif r.object_id == eid and r.subject_id and r.subject_id != eid:
                 out.append((E_PREFIX + r.subject_id, max(0.1, float(r.confidence)) * W_RELATION_REVERSE))
-        # entities -> engrams they are referenced from
+        # v1.42: use GraphStore reverse index instead of full-table scan.
+        # The legacy O(N) loop lived here and scanned every engram on
+        # every neighbor lookup; on a 10k+ store this is the difference
+        # between sub-millisecond and seconds per recall.
+        if self._graph is not None:
+            try:
+                batch = self._graph.engrams_for_batch([eid], limit_per_entity=128)
+                for eid_ref, w in batch.get(eid, []):
+                    out.append((N_PREFIX + eid_ref, W_ENTITY_TO_ENGRAM * float(w)))
+                return out
+            except Exception:
+                # Fall through to the legacy path if the index is missing.
+                pass
+        # Legacy fallback: full-table scan, filters out forgotten engrams.
         for e in self._store.all(limit=10_000_000):
             if e.forgotten_at > 0:
                 continue
@@ -158,6 +244,27 @@ class SpreadingActivation:
         for sib in (e.similar_to or []):
             if sib and sib != eid:
                 out.append((N_PREFIX + sib, W_ENGRAM_SIMILAR))
+        return out
+
+    def _engram_neighbors_batch(self, eids):
+        """Batch: for each engram id, return its (entity_ref, weight) and
+        (similar_to, weight) neighbors. Avoids the per-engram
+        `_store.get` round-trip in the BFS frontier when the caller has
+        a whole layer to expand at once.
+
+        Returns {engram_id: [(node_key, weight), ...]} where node_keys
+        are 'e:<id>' or 'n:<id>'. Forgotten engrams map to an empty list.
+        """
+        out = {eid: [] for eid in eids}
+        for eid in eids:
+            e = self._store.get(eid)
+            if e is None or e.forgotten_at > 0:
+                continue
+            for ref in (e.entity_refs or []):
+                out[eid].append((E_PREFIX + ref, W_ENGRAM_TO_ENTITY))
+            for sib in (e.similar_to or []):
+                if sib and sib != eid:
+                    out[eid].append((N_PREFIX + sib, W_ENGRAM_SIMILAR))
         return out
 
     def _label(self, key: str) -> tuple[str, str]:
