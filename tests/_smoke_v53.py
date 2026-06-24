@@ -112,6 +112,15 @@ def test_poke_to_bot_records_named_line():
     # daily cache must contain the poke line with sender real name as speaker
     ds = svc.diary_store
     lines = ds.lines_for_day(None) if hasattr(ds, "lines_for_day") else None
+    # FIX v1.59: DiaryStore.add_line is buffered (v1.42 BUG-7). The
+    # poke line lives in ds._buffer until the batch fills, a read
+    # query goes through ds (which auto-flushes), flush_now() is
+    # called, or close() runs. A raw sqlite3 connection skips all
+    # of that, so it can't see the in-memory buffer. Flush first.
+    try:
+        ds.flush_now()
+    except Exception:
+        pass
     # fallback: query db directly
     import sqlite3
     con = sqlite3.connect(svc.cfg.sqlite_path)
