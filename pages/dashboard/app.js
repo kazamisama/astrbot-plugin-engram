@@ -291,9 +291,12 @@
   async function _renderMemoryDetailInto(eid, body, rowDiv, mode) {
     try {
       var d = unwrap(await apiGet("page/memories/detail", { eid: eid }));
-      var modeBody = (mode === "edit")
-        ? editForm(d)
-        : "";
+      // FIX (v1.54): view mode was rendering an empty body - I forgot
+      // to include kvRows(d). Now view shows the actual detail fields
+      // (summary / content / actor_id / memory_type / tier / ...) just
+      // like the legacy bottom panel did, so the fold isn't useless
+      // unless the user switches to edit mode.
+      var modeBody = (mode === "edit") ? editForm(d) : kvRows(d);
       var html = '<div class="section-title">记忆详情 #' + escapeHtml(eid) + "</div>" +
         '<div class="mem-mode-actions">' +
           '<button type="button" class="btn btn-ghost btn-sm mem-mode-view"' +
