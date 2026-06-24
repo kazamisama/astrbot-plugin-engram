@@ -260,7 +260,70 @@
 ---
 
 
-## v1.4.x smoke 状态基线 (2026-06-19)
+## v1.6.x 已完成 (扩散激活接线 + RRF 三路融合 + session/MMR)
+
+> 神经科学参考:模式分离 + 单神经元再激活 (Fried 2008) + 记忆再巩固 (Nader 2000)
+> + 海马-皮层快速交接 (谌小维 2026) + 印迹细胞偏好 (Neuron 2024) + 情境依赖提取
+> (Tulving) + 主动推理的兴奋-抑制平衡 (Entropy 2025)。
+
+### v1.63 (2026-06-24, commit f346a13)
+
+- [x] **session-context 种子 + MMR 多样性重排**
+  - `hippocampus/types.py` `Cue` 新增 `session_id: str = ""` 字段
+  - `hippocampus/storage.py` 新增 `HippocampalStore.recent_for_session(session_id, k)`
+    走 SQL `WHERE session_id = ? AND forgotten_at = 0 ORDER BY created_at DESC LIMIT ?`
+  - `hippocampus/activation.py` `build_context_seeds` 加 session 源:同会话最近 N 条
+    engram 作为 pre-excitation 种子(优先于 importance 种子去重)
+  - `hippocampus/service.py` `recall_with_activation` 把 `cue.session_id` 透传
+  - `hippocampus/retrieval/dual_route.py` 新增 `_mmr_rerank(candidates, k)`:
+    λ=0.75 平衡 RRF 相关性与 `similar_to` 边多样性(每条边 0.5 惩罚);
+    融合后、截取前重排
+  - `DualRouteConfig.mmr_enabled=True` 默认开,`mmr_lambda: float = 0.75` 可调
+  - 新建 `_smoke_v66.py` (5 测试): session 排序 / 上下文种子 wiring /
+    `Cue.session_id` 端到端 / MMR 启用 vs 禁用 / 相似 cluster 去重, 全过
+
+### v1.62 (2026-06-24, commit ba9735b)
+
+- [x] **spread 路由独立 RRF 融合 + 图路由触发再巩固**
+  - `hippocampus/retrieval/dual_route.py` 新增 `_spread_route(cue)`:
+    把 `cue.activation` map 转 `RankedCandidate` 列表(按 act 降序, top `spread_candidate_k`)
+  - `DualRouteConfig.spread_route_enabled=True` / `spread_candidate_k=16`
+  - `RouteKind` 枚举加 `SPREAD = "spread"`
+  - `search()` / `asearch()` / `explain()` 三处都把 spread 加入 routes
+  - 修复 graph / spread 路由召回的 engram 不再触发 reconsolidation 的盲区:
+    融合后 `reconsolidator.touch(e)` 对所有 top-k 统一调用
+  - 新建 `_smoke_v65.py` (6 测试): 空 activation 不崩 / spread 排序 /
+    三路 RRF 融合 / disable 跳过 / reconsolidation 触发计数 / `RouteKind.SPREAD`,
+    全过
+
+### v1.61 (2026-06-24, commit 918efea)
+
+- [x] **扩散激活接入主召回 + O(N)→O(度数)**
+  - `hippocampus/graph_store.py` 新增 `engrams_for_batch(entity_ids, limit_per_entity=64)`:
+    单 SQL `JOIN engrams` 过滤 forgotten_at,带 entity_id dedup + 每实体 top-N 截断
+  - `hippocampus/storage.py` 新增两个种子源查询:
+    - `recent_for_actor(actor_id, k, min_strength, include_forgotten)` — 用户近期高活跃
+    - `top_by_importance(min_importance, k, actor_id, include_forgotten)` — 高 importance 优先
+  - `hippocampus/activation.py` `SpreadingActivation` 构造函数加可选 `graph_store`;
+    `_neighbors_entity` 优先走 `engrams_for_batch` (O 度数), graph_store 缺失时回退
+    旧 O(N) 路径(用 `self._store.all` 扫表 + `forgotten_at` 过滤)
+  - 新增 `build_context_seeds(*, matched_entity_ids, actor_id, high_importance_count,
+    recent_count, recent_min_strength)`:三源合一,种子去重
+  - 新增 `activate_with_context(*, matched_entity_ids, actor_id, ...) -> dict`:
+    一站式入口,跑扩散后只保留 engram 投影
+  - 新增 `_engram_neighbors_batch(eids)`:BFS frontier 批量展开
+  - `hippocampus/service.py` `_ensure_atom_layer` 在 graph_store 创建后立刻
+    `self.activation._graph = self.graph_store`(lazy init 顺序桥接)
+  - `recall_with_activation` 改用 `activate_with_context` 自动构造种子并填进
+    `cue.activation`,让下游 `PatternCompleter.recall()` 第 114 行的
+    `activation_score_weight(0.18)` 真正生效
+  - 新建 `_smoke_v64.py` (6 测试): batch 正确性 + recent/top_importance 过滤 +
+    `activate_with_context` 出 engram map + O(N) 回归 monkey-patch trap +
+    legacy fallback, 全过
+
+---
+
+## v1.4.x smoke 状态基线 (2026-06-19, 仍有效, 旧版本回归参考)
 
 最后一次完整回归:python astrbot-plugin-hippocampus/_smoke_v08.py ... _smoke_v26.py,**19/19 ALL OK,零失败**。
 
@@ -278,3 +341,46 @@
 - 教训:facade 改名/改签名时,**优先 grep 仓库所有调用点**,而不是只改实现;或在新 facade 加 @deprecated 兼容层跑过过渡期
 
 历史 v11/v12 注释(分散在上方 B5 / B7 / B8 / B9 段落)已统一指向 14187ec / bb3b9bc。如果将来 v1.4.x smoke 又出现 1/N 失败,先来这里对比上次绿点。
+
+---
+
+## v1.6.x smoke 状态基线 (2026-06-24, 当前绿点)
+
+完整回归 **v43 / v45 / v63 / v64 / v65 / v66** — **6/6 ALL PASS, 零失败**。
+
+| Smoke | 范围 | 关键覆盖 |
+|---|---|---|
+| v66 | v1.63 session+MMR | session 排序 / 上下文种子 wiring / `Cue.session_id` 端到端 / MMR 启用 vs 禁用 / 相似 cluster 去重 |
+| v65 | v1.62 spread+recon | 空 activation 不崩 / spread 排序 / 三路 RRF 融合 / disable 跳过 / reconsolidation 触发计数 / `RouteKind.SPREAD` |
+| v64 | v1.61 扩散激活 | `engrams_for_batch` 正确性 / `recent_for_actor` + `top_by_importance` 过滤 / `activate_with_context` 出 engram map / O(N) 回归 monkey-patch trap / legacy fallback |
+| v63 | v1.4.x 收尾 | 旧基线, 无回归 |
+| v45 | v1.4 业务 | 旧基线, 无回归 |
+| v43 | v1.4 早期 | 旧基线, 无回归 |
+
+本次三版本改动借鉴的神经科学文献 (webchat 2026-06-24 整理):
+
+- Buzsáki, *The Brain From Inside Out* (2019) — 双阶段巩固 + SWR replay
+- Fried et al., *Science* 322:96–101 (2008) — 自由回忆 single-neuron reactivation
+- Nader et al., *Nature* 406:722–726 (2000) — 记忆再巩固
+- Gilboa & Marlatte, *Neubiorev* (2019) — 海马-皮层统一巩固
+- *Neuron* 2024 (多伦多大学) — CA1 engram cell allocation 偏向高兴奋性
+- 谌小维团队, *Neuron* 2026 — 海马-皮层指挥权 1–2 天内反转
+- *Neuropsychopharmacology* 2015 — 神经发生驱动记忆清除
+- Smolen, Zhang, Byrne, *Nature Reviews Neuroscience* — 间隔学习
+- Bower 1981 — mood-congruent recall
+- Bartlett 1932 / Piaget — schema-driven consolidation
+
+主要工程对位:
+
+| 神经机制 | engram 实现 |
+|---|---|
+| Pattern separation (DG) | `separation.py` cluster expansion + `dual_route._mmr_rerank` λ=0.75 |
+| Pattern completion (CA3) | `SpreadingActivation` BFS 2-hop, weight × decay |
+| Reconsolidation (Nader) | `Reconsolidator.touch()` v1.62 改为所有路由触发 |
+| Pre-excitation bias | `build_context_seeds` 拼三/四源种子 + `top_by_importance` |
+| SWR replay | `replay_boost` + `consolidator.step()` 后台 |
+| 主动遗忘 | `memory_decay_enabled` + `relation_decay` 双轨 |
+| 印迹细胞偏好 | `Cue.activation` 高 importance engram 强制入种子 |
+| 海马-皮层交接 | `tiering.hot/warm/cold` 三级保留 |
+| Schema 加速 | `memory_types` + `cluster_id` 分类入档 |
+| 情境依赖 | `Cue.session_id` → `recent_for_session` 种子 (v1.63) |
