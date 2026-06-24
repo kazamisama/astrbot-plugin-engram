@@ -47,22 +47,22 @@ astrbot-plugin-engram-core/     # 仓库根即插件目录(扁平布局)
 
 ## 部署
 
-把整个仓库克隆到 AstrBot 的 `data/plugins/astrbot-plugin-engram-core/` 下。
+把整个仓库克隆到 AstrBot 的 `data/plugins/astrbot-plugin-engram-core/` 下。**AstrBot 把插件的 SQLite 数据库落在自己 `data/` 目录下，不在插件目录里**——所以删 / 重建插件目录**不会丢数据**，升级和重装都安全。
 
 ### 从 v1.47 之前升级
 
 v1.48 改了 plugin ID，**这是 breaking 升级**：
 
-1. 在 AstrBot → 插件管理里 **卸载**旧条目（保留 `data/hippocampus.db`）。
-2. 把仓库克隆/复制到 `data/plugins/astrbot-plugin-engram-core/`。
+1. 在 AstrBot 插件管理里 **卸载**旧条目（无需手动备份什么——数据库是安全的）。
+2. 把仓库克隆到 `data/plugins/astrbot-plugin-engram-core/`。
 3. 重启 AstrBot → 新条目以 `Engram 海马体记忆` 显示，ID 是 `astrbot_plugin_engram_core`。
-4. SQLite 数据库文件 `data/hippocampus.db` 目录没变，**无需迁移**。
-5. 已存在的 WebUI 路由 `/astrbot_plugin_engram/page/*` 全部作废；新路径是 `/astrbot_plugin_engram_core/page/*`。如果 WebUI 仪表盘里收藏了链接，需要刷新页面或重新点一次导航。
+4. **记忆数据自动保留**（验证过：彻底删除插件目录 + 重新安装后，原有 engrams / diary / chunks 全部还在）。
+5. WebUI 路由前缀变了：`/astrbot_plugin_engram/page/*` → `/astrbot_plugin_engram_core/page/*`。仪表盘里收藏的链接需要刷新页面或重新导航。
 6. `/mem recall` 等命令的语义和参数都不变。
 
 ### 从 v1.43–v1.47 升级（只换仓库名、没换 ID 的版本）
 
-升级路径同 v1.44：旧目录 `data/plugins/astrbot-plugin-engram/` 可以保留（AstrBot 按 `metadata.yaml` 的 `name` 加载，不挑目录名），但建议改成 `-core` 后缀以便对齐。
+v1.44 改的是仓库名 / 部署目录名，plugin ID 没动。直接 `git pull` 或重新 `git clone` 到 `data/plugins/astrbot-plugin-engram-core/` 即可，AstrBot 按 `metadata.yaml: name` 加载，不挑目录名。
 
 ## 配置
 
