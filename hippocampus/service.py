@@ -67,7 +67,8 @@ class MemoryService:
         self.store = HippocampalStore(
             self.cfg.sqlite_path, self.embedder,
             tokenizer_mode=getattr(self.cfg, "tokenizer_mode", "char"))
-        self.encoder = EngramEncoder(self.embedder, llm=self.llm, cfg=self.cfg)
+        self.encoder = EngramEncoder(self.embedder, llm=self.llm, cfg=self.cfg,
+                                    persona_provider=self._build_persona_provider())
         self.separator = PatternSeparator(self.cfg)
         self.working = WorkingMemory(self.cfg)
         self.reconsolidator = Reconsolidator(self.store, self.cfg)
@@ -711,6 +712,23 @@ class MemoryService:
             return None
         return None
 
+    def _build_persona_provider(self):
+        """FIX (v1.57): single source of truth for persona prefill.
+        Used by both EngramEncoder (per-message) and
+        ConversationSummarizer (per-conversation). The callable takes
+        (actor_id, channel_ctx) and returns a Chinese persona summary
+        string, or None."""
+        def _impl(actor_id, channel_ctx=""):
+            try:
+                if not actor_id or not hasattr(self, "get_persona"):
+                    return None
+                p = self.get_persona(actor_id)
+                return (getattr(p, "summary", "") or "").strip() or None
+            except Exception:
+                return None
+        return _impl
+
+
     def _find_text_duplicate(self, e: Engram):
         """Text-layer near-duplicate check (v1.11). Uses FTS to pull
         cross-session candidates for the same actor, then word-level
@@ -1250,17 +1268,42 @@ class MemoryService:
         if not lines:
             return None
         corpus = "\n".join(lines)
+        # FIX (v1.57) P1-4: explicit behavior spec (was vague "用户画像助手").
+        # Ask for one paragraph, hard length cap, hard no-fence. The bot's
+        # own persona is appended after this base (P1-4, see below).
         system = (
-            "你是一个用户画像助手。基于该用户最近的消息，输出一个 JSON 对象："
-            "{\"summary\": \"一段简洁客观的中文画像，概括稳定偏好/身份/行为，"
-            "120 字以内\", \"tags\": [\"3 到 5 个最能概括该用户的关键词\"]}。"
-            "只输出 JSON，不要额外文字。")
+            "你是一台 AI 助手的用户画像员。"
+            "基于该用户最近的消息，输出一个 JSON 对象，键："
+            "summary (一段简洁客观的中文画像，概括稳定偏好/身份/行为，120 字以内，只写一段不分行), "
+            "tags (3 到 5 个最能概括该用户的关键词)。"
+            "严格只输出 JSON，禁止任何额外文字或 markdown fence。"
+        )
         try:
-            raw = self.llm.chat(system, corpus, max_tokens=320) or ""
+            # FIX (v1.57) P1-4: inject the bot's own persona as
+            # context, so the model knows the perspective it's
+            # writing from. Falls back silently when no bot persona
+            # is configured.
+            full_system = system
+            try:
+                bot_pid = (getattr(self.cfg, "bot_actor_id", "") or "assistant")
+                if bot_pid and hasattr(self, "get_persona"):
+                    bot_p = self.get_persona(bot_pid)
+                    bp = (getattr(bot_p, "summary", "") or "").strip()
+                    if bp:
+                        full_system = full_system + "\n\n你的人格设定：" + bp[:200]
+            except Exception:
+                pass
+            raw = self.llm.chat(full_system, corpus, max_tokens=320) or ""
         except Exception as ex:
             print("[hippocampus] build_persona llm error: " + repr(ex))
             raw = ""
-        summary, tags = self._parse_persona_output(raw)
+        # FIX (v1.57) P1-5: require explicit JSON summary; refuse to
+        # store raw LLM chitchat that the old fallback would have
+        # written verbatim (e.g. "Sure! Here is your JSON: ...").
+        parsed = self._parse_persona_output(raw)
+        if parsed is None:
+            return None
+        summary, tags = parsed
         if not summary:
             return None
         from .quality import check_summary
@@ -1274,12 +1317,13 @@ class MemoryService:
     @staticmethod
     def _parse_persona_output(raw):
         """Parse the persona LLM output into (summary, tags). Accepts a JSON
-        object {summary, tags}; falls back to treating the whole text as the
-        summary (with empty tags) when it is not valid JSON."""
+        object {summary, tags}; returns (None, []) when the output is not a
+        well-formed JSON object containing a non-empty `summary` field, so
+        the caller refuses to store garbage (FIX v1.57 P1-5)."""
         import json as _json
         text = (raw or "").strip()
         if not text:
-            return "", []
+            return None, []
         # Strip ```json fences if present.
         if text.startswith("```"):
             text = text.strip("`")
@@ -1293,17 +1337,23 @@ class MemoryService:
             blob = text[start:end + 1]
             try:
                 obj = _json.loads(blob)
+                if not isinstance(obj, dict):
+                    return None, []
                 summary = str(obj.get("summary", "")).strip()
+                if not summary:
+                    return None, []
                 tags_raw = obj.get("tags", [])
                 tags = []
                 if isinstance(tags_raw, list):
                     tags = [str(t).strip() for t in tags_raw if str(t).strip()][:5]
-                if summary:
-                    return summary, tags
+                return summary, tags
             except Exception:
                 pass
-        # Fallback: whole text is the summary.
-        return text, []
+        # FIX (v1.57) P1-5: refuse to store non-JSON output. The
+        # old fallback silently wrote the whole raw text as the
+        # persona summary, which meant "Sure! Here is your JSON: ..."
+        # or any chitchat from the LLM would land in the user row.
+        return None, []
 
     def get_persona(self, actor_id):
         if self.persona_store is None or not actor_id:
