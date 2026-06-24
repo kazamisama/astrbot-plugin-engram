@@ -91,12 +91,14 @@ def resolve_cut(store, channel_id: str, boundary_epoch: float, *,
     return fallback if fallback is not None else boundary_epoch
 
 
-def target_length(total_chars: int, ratio_per_person: float,
-                  participants_excl_self: int, *,
-                  floor: int = 0, cap: int = 0) -> int:
-    """Diary compression: total * (ratio / max(1, participants))."""
-    n = max(1, int(participants_excl_self))
-    t = int(round(max(0, total_chars) * (max(0.0, ratio_per_person) / n)))
+def target_length(total_chars: int, ratio: float,
+                  *, floor: int = 0, cap: int = 0) -> int:
+    """FIX (v1.56): diary compression is `total * ratio` (no per-
+    participant division). The old `total * (ratio / n)` formula
+    collapsed 10-person group diaries to 12-25 chars, unreadable.
+    `diary_compress_ratio` is now the raw share of the transcript
+    (default 0.025 => 2.5% of the day's lines, floor/cap as before)."""
+    t = int(round(max(0, total_chars) * max(0.0, ratio)))
     if floor > 0:
         t = max(t, floor)
     if cap > 0:
@@ -195,8 +197,8 @@ class DiaryWriter:
             return None
         transcript = _transcript(lines)
         total = len(transcript)
-        npart = _participants_excl_self(lines)
-        target = target_length(total, self._ratio(), npart,
+        # FIX (v1.56): drop participants_excl_self divisor
+        target = target_length(total, self._ratio(),
                                floor=self._floor(), cap=self._cap())
         result = self._llm_compose(lines, target, day_label)
         if result is None:
@@ -219,7 +221,7 @@ class DiaryWriter:
             sys = self._system_prompt(lines)
             user = _build_prompt(lines, target, day_label)
             raw = self._llm.chat(sys, user, temperature=0.4,
-                                 max_tokens=min(2048, max(256, target * 2)))
+                                 max_tokens=max(512, min(4096, target * 3)))
         except Exception as ex:
             print("[hippocampus] diary llm error: " + repr(ex))
             return None

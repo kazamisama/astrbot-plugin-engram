@@ -140,7 +140,7 @@ class ConversationSummarizer:
             sys = self._system_prompt(rec)
             user = _build_prompt(rec, target)
             raw = self._llm.chat(sys, user, temperature=0.2,
-                                 max_tokens=min(1024, max(128, target * 2)))
+                                 max_tokens=max(512, min(4096, target * 3)))
         except Exception as ex:
             print("[hippocampus] summarizer llm error: " + repr(ex))
             return None

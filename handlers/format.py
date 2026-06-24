@@ -46,6 +46,9 @@ def _extract(event: AstrMessageEvent) -> dict:
                or _call(event, "get_message_str")
                or "")
     chat_type = "group" if group_id else "private"
+    # FIX (v1.56): friendly label for LLM context (e.g. "My Family
+    # Group (12345)" instead of raw id "12345").
+    channel_label = group_name or group_id or session_id or "default"
     persona_id = ""
     try:
         ge = getattr(event, "get_extra", None)
@@ -56,18 +59,22 @@ def _extract(event: AstrMessageEvent) -> dict:
     speaker = (_call(event, "get_sender_name")
                or getattr(getattr(event, "sender", None), "nickname", None)
                or actor_id)
+    # v1.17 B-1: conversation identity stamps
+    # FIX (v1.56): add a friendly channel_label so the LLM extractor
+    # (and diary summary) can refer to "the group" / "the chat" by
+    # name instead of by raw session/group id.
     out = {
         "session_id": session_id,
         "actor_id": actor_id,
         "platform": platform,
         "channel_id": channel_id,
         "content": content,
-        # v1.17 B-1: conversation identity stamps
         "chat_type": chat_type,
         "persona_id": persona_id,
         "speaker": speaker,
         "group_id": group_id,
         "group_name": "",
+        "channel_label": channel_label,
         "is_bot": False,
     }
     if chat_type == "private":

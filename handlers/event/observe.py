@@ -69,17 +69,18 @@ class ObserveHandler:
             from hippocampus.summarizer import ConversationSummarizer
             svc = self.service
             def _persona(rec):
+                # FIX (v1.56): delegate to the shared _build_persona_provider
+                # so the source of truth is the service (encoder + diary
+                # writer also go through it). rec carries actor info we
+                # extract here.
                 try:
-                    if not getattr(svc.cfg, "persona_inject_enabled", False):
-                        # still allow persona prefill independent of inject flag
-                        pass
-                    aid = rec.peer_actor_id or (rec.participants(include_bot=False) or [""])[0]
-                    if not aid or not hasattr(svc, "get_persona"):
-                        return None
-                    p = svc.get_persona(aid)
-                    return (getattr(p, "summary", "") or "").strip() or None
+                    aid = (rec.peer_actor_id
+                           or (rec.participants(include_bot=False) or [""])[0])
                 except Exception:
+                    aid = ""
+                if not aid:
                     return None
+                return svc._build_persona_provider()(aid, getattr(rec, "channel_id", ""))
             self._summarizer = ConversationSummarizer(
                 svc.cfg, llm=getattr(svc, "llm", None), persona_provider=_persona)
         else:
@@ -159,10 +160,12 @@ class ObserveHandler:
     def _ingest_per_message(self, meta: dict, cfg) -> None:
         """Legacy one-engram-per-message path (default off; debug only when
         summary mode is on)."""
-        # session_buffer.observe expects only the core fields.
+        # session_buffer.observe expects only the core fields. FIX
+        # (v1.56): also pass channel_label + chat_type so the per-
+        # message LLM extractor can build channel context.
         core = {k: meta[k] for k in (
             "session_id", "actor_id", "platform", "channel_id", "content",
-            "persona_id")
+            "persona_id", "channel_label", "chat_type")
             if k in meta}
         if cfg is not None and getattr(cfg, "session_aggregate_enabled", False):
             self._get_aggregator().feed(core)

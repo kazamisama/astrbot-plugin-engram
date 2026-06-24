@@ -133,7 +133,10 @@ class ReplayConsolidator:
         prompt = ("Given these related memories of the same user, produce a single-line gist"
                   " (max 80 chars, no quotes, English or Chinese OK):\n" + texts + "\n\nGist:")
         try:
-            out = self._llm.chat("memory gist generator", prompt, temperature=0.2, max_tokens=80)
+            out = self._llm.chat(
+                ("memory gist generator for an AI assistant\'s"
+                 " long-term memory. One-line summary, 80 char cap."),
+                prompt, temperature=0.2, max_tokens=80)
         except Exception:
             return None
         if not out:
