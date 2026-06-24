@@ -143,6 +143,7 @@ class Cue:
     # --- v1.1: mood-congruent + activation rerank ---
     valence_hint: float | None = None  # caller-provided emotional tone in [-1, 1]; None = no bias
     activation: dict | None = None     # {engram_id: activation in [0,1]} from SpreadingActivation
+    session_id: str = ""                # v1.63: session-scoped recall context
 @dataclass
 class RecallResult:
     engrams: list[Engram]

@@ -109,15 +109,22 @@ class SpreadingActivation:
 
     # ---------- v1.42: context-aware activation ----------
     def build_context_seeds(self, *, matched_entity_ids=None, actor_id=None,
+                            session_id: str = "",
                             high_importance_count: int = 5,
                             recent_count: int = 3,
-                            recent_min_strength: float = 0.5) -> list:
+                            recent_min_strength: float = 0.5,
+                            session_count: int = 3) -> list:
         """Build a list of seed node keys for activate(), incorporating
         three signal sources:
 
         1. Explicit entity matches (from the graph retriever); primary
            signal; activation_seed = 1.0.
         2. The user's recently accessed high-strength engrams; context
+           signal; pre-excites items the user has been thinking
+           about recently. Maps to hippocampal pre-excitation bias
+        3. Same-session engrams; context signal; recent engrams from
+           this conversation bubble up naturally.
+        4. The user's (or global) high-importance engrams; personal engrams; context
            signal; pre-excites items the user has been thinking about
            recently. Maps to hippocampal pre-excitation bias on engram
            cell allocation.
@@ -139,6 +146,16 @@ class SpreadingActivation:
                 recent = []
             for e in recent:
                 seeds.append(N_PREFIX + e.id)
+        if session_id and session_count > 0:
+            try:
+                sess = self._store.recent_for_session(
+                    session_id, k=session_count)
+            except Exception:
+                sess = []
+            for e in sess:
+                key = N_PREFIX + e.id
+                if key not in seeds:
+                    seeds.append(key)
         if high_importance_count > 0:
             try:
                 top = self._store.top_by_importance(

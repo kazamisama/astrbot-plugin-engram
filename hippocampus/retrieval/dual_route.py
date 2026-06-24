@@ -68,6 +68,13 @@ class DualRouteConfig:
     graph_relation_hops: int = 1
     # If the graph route returns no entity matches, skip it entirely
     skip_empty_graph_route: bool = True
+    # v1.63: MMR diversity rerank. After RRF fusion, apply Maximal
+    # Marginal Relevance to reduce redundancy in the top-k.
+    # lambda=1.0 = pure relevance, lambda=0.0 = pure diversity.
+    # Uses similar_to links as the diversity distance metric
+    # (lightweight; no embedding load required).
+    mmr_enabled: bool = True
+    mmr_lambda: float = 0.75
     # v1.62: spreading-activation route (pre-excitation + context spread).
     # When enabled, the spread route contributes activation-ranked engrams
     # as a third input to RRF fusion alongside document + graph routes.
@@ -113,6 +120,9 @@ class DualRouteRetriever:
             routes.append(("spread", spread_hits))
         fusion = RRFFusion(k=self.cfg.rrf_k)
         fused = fusion.fuse(routes)
+        # v1.63: MMR diversity rerank (after fusion, before truncation)
+        if self.cfg.mmr_enabled and len(fused) > 1:
+            fused = self._mmr_rerank(fused, max(1, cue.k))
         # trim to k
         top = fused[: max(1, cue.k)]
         engrams = [fc.item for fc in top]
@@ -184,6 +194,51 @@ class DualRouteRetriever:
             ))
         out.sort(key=lambda h: h.rrf_contribution, reverse=True)
         return out
+
+    # --- diversity -------------------------------------------------
+    def _mmr_rerank(self, candidates: list, k: int) -> list:
+        """Maximal Marginal Relevance: iteratively select the best
+        candidate that balances relevance (RRF score) with diversity
+        (dissimilarity to already-selected items).
+
+        Similarity is measured via the `similar_to` graph: if
+        candidate X lists Y in its similar_to, they are considered
+        similar (penalty weight = 0.5 per link). This is a lightweight
+        proxy for full embedding cosine distance.
+        """
+        lamb = self.cfg.mmr_lambda
+        if len(candidates) <= max(1, k):
+            return list(candidates)
+        selected: list = []
+        remaining = list(candidates)
+        # Pre-index similar_to for quick lookup
+        sim_index: dict = {}
+        for c in remaining:
+            eid = getattr(c.item, 'id', str(id(c.item)))
+            sims = set(getattr(c.item, 'similar_to', None) or [])
+            sim_index[eid] = sims
+        for _ in range(k):
+            best = None
+            best_score = -999.0
+            for c in remaining:
+                rel = c.rrf_score if hasattr(c, 'rrf_score') else c.raw_score
+                div_penalty = 0.0
+                for s in selected:
+                    sid = getattr(s.item, 'id', '')
+                    cid = getattr(c.item, 'id', '')
+                    if cid in sim_index.get(sid, set()):
+                        div_penalty += 0.5
+                    if sid in sim_index.get(cid, set()):
+                        div_penalty += 0.5
+                mmr = lamb * rel - (1.0 - lamb) * div_penalty
+                if mmr > best_score:
+                    best_score = mmr
+                    best = c
+            if best is None:
+                break
+            selected.append(best)
+            remaining.remove(best)
+        return selected
 
     # --- route implementations -----------------------------------------
     def _spread_route(self, cue: Cue) -> list[RankedCandidate]:

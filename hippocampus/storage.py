@@ -308,6 +308,22 @@ class HippocampalStore:
                 (after_id, int(limit)))
             return [Engram.from_row(dict(r)) for r in cur.fetchall()]
 
+    def recent_for_session(self, session_id: str, k: int = 5,
+                          include_forgotten: bool = False) -> list:
+        """Return up to k engrams for a session, newest-first.
+        Used as context seeds in SpreadingActivation to pre-excite
+        engrams from the same conversation."""
+        if not session_id:
+            return []
+        params = [session_id]
+        fc = "" if include_forgotten else " AND forgotten_at = 0 "
+        sql = "SELECT * FROM engrams WHERE session_id = ?" + fc
+        sql += " ORDER BY created_at DESC LIMIT ?"
+        params.append(int(k))
+        with self._lock, self._conn:
+            cur = self._conn.execute(sql, params)
+            return [Engram.from_row(dict(r)) for r in cur.fetchall()]
+
     def recent_for_actor(self, actor_id: str, k: int = 5,
                           min_strength: float = 0.0,
                           include_forgotten: bool = False) -> list:

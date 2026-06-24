@@ -1392,6 +1392,7 @@ class MemoryService:
                 act_map = self.activation.activate_with_context(
                     matched_entity_ids=matched,
                     actor_id=cue.actor_id if hasattr(cue, 'actor_id') else None,
+                    session_id=getattr(cue, 'session_id', ''),
                     depth=self.cfg.activation_max_depth,
                     decay=self.cfg.activation_decay,
                     floor=self.cfg.activation_floor,
