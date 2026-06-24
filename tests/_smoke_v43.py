@@ -91,11 +91,11 @@ def test_diarystore_chunks():
 def test_compression_and_split():
     banner("DiaryWriter: per-person compression + chunk split + cut degrade")
     # private (1 participant): total*0.025
-    assert target_length(10000, 0.025, 1, floor=50, cap=2500) == 250
+    assert target_length(10000, 0.025, floor=50, cap=2500) == 250
     # group 5 participants: total*0.025/5, but floor 50 kicks in
-    assert target_length(2000, 0.025, 5, floor=50, cap=2500) == 50
+    assert target_length(2000, 0.025, floor=50, cap=2500) == 50
     # cap clamps
-    assert target_length(1_000_000, 0.025, 1, floor=50, cap=2500) == 2500
+    assert target_length(1_000_000, 0.025, floor=50, cap=2500) == 2500
     # split_chunks: 2 paragraphs -> 2 chunks with proportional ts
     text = "para one here\n\npara two here"
     pieces = split_chunks(text, 100.0, 200.0, max_chars=400)

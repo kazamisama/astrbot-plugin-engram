@@ -214,7 +214,10 @@ class MemoryService:
 
     # ---------- observe ----------
     def observe(self, *, session_id: str, actor_id: str, platform: str,
-                channel_id: str, content: str, persona_id: str = "") -> Engram:
+                channel_id: str, content: str, persona_id: str = "",
+                # FIX (v1.57): accepted-but-unused kwargs from the event
+                # ingest path so the LLM extractor can use them later.
+                channel_label: str = "", chat_type: str = "") -> Engram:
         from .session_filter import SessionFilter, FilterContext, FilterVerdict
         decision = SessionFilter(self.cfg).decide(FilterContext(
             platform=platform, channel_id=channel_id,

@@ -209,7 +209,9 @@ class DiaryWriter:
         result.setdefault("participants", [])
         result["_target_chars"] = target
         result["_source_total_chars"] = total
-        result["_participants_excl_self"] = npart
+        # FIX (v1.57): npart removed (formula no longer divides); keep the
+        # meta field as 0 so old readers/dashboards that key on it still see a number.
+        result["_participants_excl_self"] = 0
         result["_first_ts"] = lines[0].ts
         result["_last_ts"] = lines[-1].ts
         return result
