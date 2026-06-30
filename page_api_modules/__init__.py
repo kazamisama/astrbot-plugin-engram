@@ -11,6 +11,7 @@ from .recall import RecallHandler
 from .graph import GraphHandler
 from .backup import BackupHandler
 from .diary import DiaryHandler
+from .persona import PersonaHandler
 
 __all__ = [
     "PageApiUtils",
@@ -20,4 +21,5 @@ __all__ = [
     "GraphHandler",
     "BackupHandler",
     "DiaryHandler",
+    "PersonaHandler",
 ]

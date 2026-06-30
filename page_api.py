@@ -44,6 +44,7 @@ from page_api_modules import (
     GraphHandler,
     BackupHandler,
     DiaryHandler,
+    PersonaHandler,
 )
 
 # FIX (v1.48): renamed to match metadata.yaml: name (was
@@ -110,6 +111,7 @@ class PluginPageApi:
         self.graph_handler = GraphHandler(self.utils)
         self.backup_handler = BackupHandler(self.utils)
         self.diary_handler = DiaryHandler(self.utils)
+        self.persona_handler = PersonaHandler(self.utils)
 
     def _service(self):
         """Return the live MemoryService or None if not initialized."""
@@ -182,6 +184,17 @@ class PluginPageApi:
         # FIX (v1.46): WebUI inline delete (mirrors /memories/delete).
         register(f"{PAGE_API_PREFIX}/diaries/delete", self._delete_diary,
                  ["POST"], "Hippocampus diary soft/hard delete")
+        # v1.65: persona management
+        register(f"{PAGE_API_PREFIX}/personas", self._list_personas,
+                 ["GET"], "Hippocampus persona list")
+        register(f"{PAGE_API_PREFIX}/personas/detail", self._persona_detail,
+                 ["GET"], "Hippocampus persona detail")
+        register(f"{PAGE_API_PREFIX}/personas/build", self._build_persona,
+                 ["POST"], "Hippocampus persona build")
+        register(f"{PAGE_API_PREFIX}/personas/update", self._update_persona,
+                 ["POST"], "Hippocampus persona update")
+        register(f"{PAGE_API_PREFIX}/personas/delete", self._delete_persona,
+                 ["POST"], "Hippocampus persona delete")
 
     # ---------- async route handlers ----------
     async def _health(self) -> dict[str, Any]:
@@ -303,3 +316,29 @@ class PluginPageApi:
             self._service(),
             eid=str(body.get("eid", "")),
             hard=_as_bool(body.get("hard"), False))
+
+    async def _list_personas(self) -> dict[str, Any]:
+        return self.persona_handler.list_personas(self._service())
+
+    async def _persona_detail(self) -> dict[str, Any]:
+        args = await _query_args()
+        return self.persona_handler.get_persona_detail(
+            self._service(), actor_id=str(args.get("actor_id", "")))
+
+    async def _build_persona(self) -> dict[str, Any]:
+        body = await _json_body()
+        return self.persona_handler.build_persona(
+            self._service(), actor_id=str(body.get("actor_id", "")))
+
+    async def _update_persona(self) -> dict[str, Any]:
+        body = await _json_body()
+        return self.persona_handler.update_persona(
+            self._service(),
+            actor_id=str(body.get("actor_id", "")),
+            summary=str(body.get("summary", "")),
+            tags=body.get("tags"))
+
+    async def _delete_persona(self) -> dict[str, Any]:
+        body = await _json_body()
+        return self.persona_handler.delete_persona(
+            self._service(), actor_id=str(body.get("actor_id", "")))

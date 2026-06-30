@@ -22,6 +22,7 @@
       <nav class="tabs">
         <button class="tab active" data-tab="overview">概览</button>
         <button class="tab" data-tab="memories">记忆列表</button>
+        <button class="tab" data-tab="personas">用户画像</button>
         <button class="tab" data-tab="diary">日记</button>
         <button class="tab" data-tab="graph">关系图谱</button>
         <button class="tab" data-tab="recall">召回测试</button>
@@ -48,6 +49,18 @@
             <div class="empty">点击「加载」查看记忆</div>
           </div>
           <div id="mem-detail" class="detail"></div>
+        </section>
+
+        <!-- 用户画像 -->
+        <section class="panel" data-panel="personas">
+          <div class="toolbar">
+            <button class="btn" id="btn-load-personas">加载画像</button>
+            <span class="toolbar-hint" id="personas-count"></span>
+          </div>
+          <div class="mem-grid" id="persona-rows">
+            <div class="empty">点击「加载画像」查看用户画像</div>
+          </div>
+          <div id="persona-detail" class="detail"></div>
         </section>
 
         <!-- 日记 -->

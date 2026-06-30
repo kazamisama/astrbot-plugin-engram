@@ -1144,6 +1144,7 @@
   document.getElementById("btn-recall").addEventListener("click", runRecall);
   document.getElementById("btn-load-backups").addEventListener("click", loadBackups);
   document.getElementById("btn-load-graph").addEventListener("click", loadGraph);
+    document.getElementById("btn-load-personas").addEventListener("click", loadPersonas);
   document.getElementById("btn-load-diary").addEventListener("click", function () { loadDiaries(false); });
   ["diary-channel", "diary-persona", "diary-day"].forEach(function (id) {
     document.getElementById(id).addEventListener("change", function () { loadDiaries(false); });
@@ -1191,5 +1192,144 @@
       console.error("[engram] init post-bridge failure:", e);
     }
   }
+
+  // ---------- personas (v1.65) ----------
+  async function loadPersonas() {
+    var wrap = document.getElementById("persona-rows");
+    var count = document.getElementById("personas-count");
+    wrap.innerHTML = emptyBox("加载中…");
+    try {
+      var d = unwrap(await apiGet("page/personas", {}));
+      var items = d.items || [];
+      count.textContent = "共 " + items.length + " 条";
+      if (!items.length) { wrap.innerHTML = emptyBox("暂无用户画像（请先积攒足够的记忆后触发生成）"); return; }
+      wrap.innerHTML = "";
+      items.forEach(function (it) { wrap.appendChild(_buildPersonaRow(it)); });
+    } catch (e) { wrap.innerHTML = errBox(e.message); count.textContent = ""; }
+  }
+
+  function _buildPersonaRow(it) {
+    var div = document.createElement("div");
+    div.className = "mem-row";
+    var tagsStr = (it.tags && it.tags.length) ? it.tags.join(" / ") : "";
+    var preview = (it.summary || "").substring(0, 80);
+    div.innerHTML =
+      '<div class="mem-head">' +
+        '<span class="mem-id">' + escapeHtml(it.actor_id) + '</span>' +
+        '<span class="mem-type">' + escapeHtml(it.platform || "") + '</span>' +
+        '<span class="mem-tags">' + (tagsStr ? escapeHtml(tagsStr) : '<span class="dim">无标签</span>') + '</span>' +
+        '<span class="mem-time">' + fmtTime(it.updated_at) + '</span>' +
+        '<span class="row-actions">' +
+          '<button class="btn btn-ghost btn-xs act-build" title="重新生成画像">&#x21bb;生成</button>' +
+          '<button class="btn btn-ghost btn-xs act-edit">编辑</button>' +
+          '<button class="btn btn-ghost btn-xs act-del">删除</button>' +
+        '</span>' +
+      '</div>' +
+      '<div class="mem-preview">' + escapeHtml(preview) + '</div>' +
+      '<div class="mem-detail-fold" style="display:none"></div>';
+    // Build button
+    div.querySelector(".act-build").addEventListener("click", function (ev) {
+      ev.stopPropagation();
+      _buildOnePersona(it.actor_id, div);
+    });
+    // Edit button -> expand fold
+    div.querySelector(".act-edit").addEventListener("click", function (ev) {
+      ev.stopPropagation();
+      _togglePersonaRow(div, it.actor_id);
+    });
+    // Delete button
+    div.querySelector(".act-del").addEventListener("click", function (ev) {
+      ev.stopPropagation();
+      _deletePersonaRow(div, it.actor_id);
+    });
+    return div;
+  }
+
+  var _personaDetailCache = {};
+  function _togglePersonaRow(rowDiv, actorId) {
+    var body = rowDiv.querySelector(".mem-detail-fold");
+    if (body.style.display === "none" || !body.style.display) {
+      body.style.display = "block";
+      _renderPersonaDetailInto(actorId, body, rowDiv);
+    } else { body.style.display = "none"; }
+  }
+
+  async function _renderPersonaDetailInto(actorId, body, rowDiv) {
+    try {
+      var cached = _personaDetailCache[actorId];
+      if (cached) { _fillPersonaEdit(body, cached, rowDiv); return; }
+      var d = unwrap(await apiGet("page/personas/detail", { actor_id: actorId }));
+      _personaDetailCache[actorId] = d;
+      _fillPersonaEdit(body, d, rowDiv);
+    } catch (e) { body.innerHTML = errBox("加载失败：" + e.message); }
+  }
+
+  function _fillPersonaEdit(body, d, rowDiv) {
+    body.innerHTML =
+      '<div class="kv">' +
+        '<label>摘要</label><textarea id="ped-summary" class="input" rows="4">' + escapeHtml(d.summary || "") + '</textarea>' +
+        '<label>标签（逗号分隔）</label><input id="ped-tags" class="input" value="' + escapeHtml((d.tags || []).join(", ")) + '" />' +
+        '<label>来源记忆数</label><span class="kv-value">' + (d.source_count || 0) + '</span>' +
+        '<label>最后更新</label><span class="kv-value">' + fmtTime(d.updated_at) + '</span>' +
+      '</div>' +
+      '<div class="edit-actions">' +
+        '<span id="ped-msg" class="edit-msg"></span>' +
+        '<button class="btn btn-sm" id="ped-save">保存</button>' +
+        '<button class="btn btn-sm btn-ghost" id="ped-cancel">取消</button>' +
+      '</div>';
+    body.querySelector("#ped-save").addEventListener("click", function () {
+      _savePersonaEdit(d.actor_id, body, rowDiv);
+    });
+    body.querySelector("#ped-cancel").addEventListener("click", function () {
+      body.style.display = "none";
+    });
+  }
+
+  async function _savePersonaEdit(actorId, body, rowDiv) {
+    var summary = body.querySelector("#ped-summary").value;
+    var raw = body.querySelector("#ped-tags").value;
+    var tags = raw.split(",").map(function (s) { return s.trim(); }).filter(Boolean);
+    var msg = body.querySelector("#ped-msg");
+    try {
+      var r = unwrap(await apiPost("page/personas/update",
+        { actor_id: actorId, summary: summary, tags: tags }));
+      msg.textContent = "已保存";
+      msg.className = "edit-msg ok";
+      delete _personaDetailCache[actorId];
+      await loadPersonas();
+    } catch (e) {
+      msg.textContent = "保存失败：" + e.message;
+      msg.className = "edit-msg err";
+    }
+  }
+
+  function _deletePersonaRow(rowDiv, actorId) {
+    _confirmInline("删除画像 #" + actorId + "？", async function () {
+      try {
+        unwrap(await apiPost("page/personas/delete", { actor_id: actorId }));
+        delete _personaDetailCache[actorId];
+        if (rowDiv && rowDiv.parentNode) rowDiv.parentNode.removeChild(rowDiv);
+        var wrap = document.getElementById("persona-rows");
+        if (wrap && !wrap.children.length) wrap.innerHTML = emptyBox("暂无用户画像");
+        var count = document.getElementById("personas-count");
+        if (count) { var n = (wrap && wrap.children.length) || 0; count.textContent = "共 " + n + " 条"; }
+      } catch (e) { _toastError("删除失败：" + e.message); }
+    }, { danger: true, yesLabel: "删除" });
+  }
+
+  async function _buildOnePersona(actorId, rowDiv) {
+    var btn = rowDiv.querySelector(".act-build");
+    if (btn) { btn.disabled = true; btn.textContent = "生成中…"; }
+    try {
+      unwrap(await apiPost("page/personas/build", { actor_id: actorId }));
+      delete _personaDetailCache[actorId];
+      _toast("画像已重新生成");
+      await loadPersonas();
+    } catch (e) {
+      _toastError("生成失败：" + e.message);
+      if (btn) { btn.disabled = false; btn.textContent = "↻生成"; }
+    }
+  }
+
   init();
 })();
