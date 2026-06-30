@@ -253,6 +253,20 @@ class ObserveHandler:
         content = sender_name + " " + verb + " " + target_name
         cfg = getattr(self.service, "cfg", None)
         chat_type = "group" if group_id else "private"
+        # FIX (v1.67): mirror _extract() and read persona_id from event extra.
+        # Without this, poke lines land in daily_messages with persona_id=""
+        # which makes channels_with_lines() return (channel, "") as a separate
+        # diary group, causing two diaries per day: one with the persona
+        # (containing all normal messages) and one empty/no-persona
+        # (containing only poke history). Same root cause as the early
+        # v1.36 persona-scoping rollout, but pokes were missed at the time.
+        persona_id = ""
+        try:
+            ge = getattr(event, "get_extra", None)
+            if callable(ge):
+                persona_id = ge("hippo_persona_id") or ""
+        except Exception:
+            persona_id = ""
         meta = {
             "session_id": getattr(event, "unified_msg_origin", "") or "",
             "actor_id": sender_id,
@@ -260,6 +274,7 @@ class ObserveHandler:
             "channel_id": group_id or (getattr(event, "unified_msg_origin", "") or "default"),
             "content": content,
             "chat_type": chat_type,
+            "persona_id": persona_id,
             "speaker": sender_name,
             "group_id": group_id,
             "group_name": "",
