@@ -154,3 +154,14 @@ class RecallHandler:
             yield event.plain_result("Memory service not initialized.")
             return
         yield event.plain_result(format_narrative(self.service, topic.strip()))
+
+    async def cmd_mem_debug(self, event, query: str = ""):
+        """v1.64 B14 /mem debug: diagnostic report on the dual-route
+        retriever's per-route hit attribution, RRF fusion, MMR cut,
+        and final top-k. Pairs with format_debug() in handlers/format.
+        """
+        from ..format import format_debug
+        if self.service is None:
+            yield event.plain_result("Memory service not initialized.")
+            return
+        yield event.plain_result(format_debug(self.service, query))

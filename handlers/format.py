@@ -3,6 +3,7 @@ import json, math, time
 from typing import TYPE_CHECKING
 from astrbot.api.event import AstrMessageEvent
 from hippocampus import EXPORT_FORMAT_VERSION, __version__ as HIPPO_VERSION, Cue
+from hippocampus.i18n_backend import t
 if TYPE_CHECKING:
     from hippocampus import MemoryService
 def _call(obj, name, default=None):
@@ -558,6 +559,137 @@ def format_decaycurve(service, arg, k=8):
 
 def format_stats(service):
     return render_stats(service)
+
+def format_debug(service, query, k=5):
+    """v1.64 B14 /mem debug: explain why a search returned what it returned.
+
+    Diagnostic report covering:
+      1. Route distribution: hit count + top RRF per route (document / graph / spread)
+      2. Top-k detail: per-engram RRF score + which route(s) contributed + entity tag
+      3. Candidates cut by MMR/k: would-have-been-in-top-k (post-RRF, pre-truncation)
+      4. Summary: total fused / returned / cut counts
+
+    Pairs with the underlying DualRouteRetriever.explain() (which was
+    extended in B14 to include the spread route, matching search()).
+
+    Use case: a user types `/mem debug <query>` and gets a structured
+    answer to "why did this engram surface" or "why didn't that one
+    show up", without modifying any code.
+    """
+    if service is None:
+        return t("error.service_not_initialized")
+    query = (query or "").strip()
+    if not query:
+        return t("debug.usage")
+    cue = Cue(text=query, k=int(k), actor_id=None, channel_id=None)
+    from hippocampus.retrieval import DualRouteRetriever, DualRouteConfig
+    dr = DualRouteRetriever(service, DualRouteConfig())
+
+    # 1) Run search() to know the actual final top-k (post-MMR + truncation).
+    res = dr.search(cue)
+    topk_ids = {e.id for e in res.engrams}
+
+    # 2) Run explain() to get per-route hit attribution.
+    hits = dr.explain(cue)
+
+    # 3) Aggregate by engram id across all routes.
+    by_id: dict = {}
+    for h in hits:
+        rec = by_id.setdefault(h.engram.id, {
+            "doc": 0.0, "graph": 0.0, "spread": 0.0,
+            "raw_doc": 0.0, "raw_graph": 0.0, "raw_spread": 0.0,
+            "entity": None, "engram": h.engram,
+        })
+        rec[h.route.value] = h.rrf_contribution
+        rec["raw_" + h.route.value] = h.raw_score
+        if h.matched_entity:
+            rec["entity"] = h.matched_entity
+
+    # 4) Sort fused set by total RRF (descending).
+    fused = sorted(
+        by_id.values(),
+        key=lambda r: r["doc"] + r["graph"] + r["spread"],
+        reverse=True,
+    )
+
+    # 5) Render.
+    lines = [t("debug.header", query=query, k=str(k))]
+
+    # 5a) Route distribution table.
+    lines.append("")
+    lines.append(t("debug.route_dist_header"))
+    route_stats = {"document": 0, "graph": 0, "spread": 0}
+    route_top = {"document": 0.0, "graph": 0.0, "spread": 0.0}
+    for h in hits:
+        route_stats[h.route.value] += 1
+        if h.rrf_contribution > route_top[h.route.value]:
+            route_top[h.route.value] = h.rrf_contribution
+    for rname in ("document", "graph", "spread"):
+        n = route_stats[rname]
+        if n == 0:
+            lines.append(t("debug.route_line_skipped", name=rname))
+        else:
+            top = "%.4f" % route_top[rname]
+            lines.append(t("debug.route_line", name=rname, n=str(n), top=top))
+
+    # 5b) Top-k detail with per-route contribution breakdown.
+    lines.append("")
+    lines.append(t("debug.topk_header"))
+    if not res.engrams:
+        lines.append(t("debug.topk_empty"))
+    else:
+        for i, (e, s) in enumerate(zip(res.engrams, res.scores), 1):
+            rec = by_id.get(e.id, {})
+            tags = []
+            if rec.get("doc", 0.0) > 0:
+                tags.append("doc")
+            if rec.get("graph", 0.0) > 0:
+                tag = "graph"
+                if rec.get("entity"):
+                    tag += " via " + rec["entity"]
+                tags.append(tag)
+            if rec.get("spread", 0.0) > 0:
+                tags.append("spread")
+            tag_str = "+".join(tags) if tags else "?"
+            summ = (e.summary or e.content or "")[:50]
+            lines.append(
+                t("debug.topk_item", i=str(i), score="%.4f" % s,
+                  tags=tag_str, id8=e.id[:8], summary=summ)
+            )
+            parts = []
+            for r in ("doc", "graph", "spread"):
+                if rec.get(r, 0.0) > 0:
+                    parts.append(r + "=" + ("%.4f" % rec[r]))
+            if parts:
+                lines.append(t("debug.topk_rrf", parts="  ".join(parts)))
+
+    # 5c) Candidates cut by MMR or k.
+    cut = [r for r in fused if r["engram"].id not in topk_ids]
+    lines.append("")
+    lines.append(t("debug.cut_header"))
+    if not cut:
+        lines.append("  (none \u2014 all RRF survivors made top-k)")
+    else:
+        lines.append(t("debug.cut_total", n=str(len(cut))))
+        for rec in cut[:5]:  # cap to 5 to keep output bounded
+            e = rec["engram"]
+            total = rec["doc"] + rec["graph"] + rec["spread"]
+            summ = (e.summary or e.content or "")[:50]
+            lines.append(
+                t("debug.cut_item", score="%.4f" % total, id8=e.id[:8], summary=summ)
+            )
+        if len(cut) > 5:
+            lines.append(t("debug.cut_more", n=str(len(cut) - 5)))
+
+    # 5d) Summary line.
+    lines.append("")
+    lines.append(t("debug.summary_header"))
+    lines.append(t("debug.summary_candidates", n=str(len(fused))))
+    lines.append(t("debug.summary_returned", n=str(len(res.engrams))))
+    lines.append(t("debug.summary_cut", n=str(len(cut))))
+
+    return chr(10).join(lines)
+
 
 def format_dual_route(service, query, k=5):
     """v1.3 dual-route result renderer.

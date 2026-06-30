@@ -42,6 +42,7 @@ class CommandRouter:
             "mem confidence":        "recall.cmd_mem_confidence",
             "mem decaycurve":        "recall.cmd_mem_decaycurve",
             "mem narrative":         "recall.cmd_mem_narrative",
+            "mem debug":             "recall.cmd_mem_debug",
             # manage / write / debug
             "mem model":             "manage.cmd_mem_model",
             "mem model use embedding": "manage.cmd_mem_use_emb",

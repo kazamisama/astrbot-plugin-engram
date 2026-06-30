@@ -164,11 +164,28 @@ class DualRouteRetriever:
 
     def explain(self, cue: Cue) -> list[RouteHit]:
         """Diagnostic: returns the per-route hits with rrf contribution
-        broken out. Useful for /mem search debug and tests."""
+        broken out. Includes all routes that search() would consider
+        (document + graph + spread), so the diagnostic matches the
+        actual retrieval path. Useful for /mem debug (B14) and tests.
+
+        Latent fix (v1.64 B14): prior to this, explain() only fused
+        document + graph, while search() additionally fused spread.
+        This caused the diagnostic to silently under-report hits when
+        spread contributed. Now explain() mirrors search()'s routes
+        tuple construction exactly.
+        """
         doc_hits = self._document_route(cue)
         graph_hits = self._graph_route(cue)
+        spread_hits = self._spread_route(cue)
+        # Build the same routes tuple as search() so the diagnostic
+        # attribution matches the live retrieval path.
+        routes: list[tuple[str, list]] = [("document", doc_hits)]
+        if graph_hits or not self.cfg.skip_empty_graph_route:
+            routes.append(("graph", graph_hits))
+        if spread_hits:
+            routes.append(("spread", spread_hits))
         fusion = RRFFusion(k=self.cfg.rrf_k)
-        fused = fusion.fuse([("document", doc_hits), ("graph", graph_hits)])
+        fused = fusion.fuse(routes)
         by_id: dict[str, FusedCandidate] = {id(fc.item) and getattr(fc.item, "id", None) or str(id(fc.item)): fc for fc in fused}
         out: list[RouteHit] = []
         for cand in doc_hits:
@@ -191,6 +208,16 @@ class DualRouteRetriever:
                 raw_score=cand.raw_score,
                 rrf_contribution=fc.contributions.get("graph", 0.0),
                 matched_entity=getattr(cand, "_matched_entity", None),
+            ))
+        for cand in spread_hits:
+            item_id = getattr(cand.item, "id", None) or str(id(cand.item))
+            fc = by_id.get(item_id)
+            if fc is None:
+                continue
+            out.append(RouteHit(
+                engram=cand.item, route=RouteKind.SPREAD,
+                raw_score=cand.raw_score,
+                rrf_contribution=fc.contributions.get("spread", 0.0),
             ))
         out.sort(key=lambda h: h.rrf_contribution, reverse=True)
         return out

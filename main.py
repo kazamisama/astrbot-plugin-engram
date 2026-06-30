@@ -429,6 +429,13 @@ class HippocampusStar(Star):
                 "mem narrative", event, (topic,), {}):
             yield r
 
+    @filter.command("mem debug")
+    async def cmd_mem_debug(self, event: AstrMessageEvent,
+                            query: str = ""):
+        async for r in self._commands.dispatch(
+                "mem debug", event, (), {"query": query}):
+            yield r
+
     @filter.command("mem replay")
     async def cmd_mem_replay(self, event: AstrMessageEvent):
         async for r in self._commands.dispatch(

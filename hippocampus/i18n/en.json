@@ -3,7 +3,7 @@
     "lang": "en"
   },
   "help": {
-    "full_text": "## astrbot-plugin-engram-core\nv1.4.x - Hippocampus-like long-term memory framework\n\n/recall <query>                                   recall related memories (default hybrid)\n/mem help                                         show this help\n/mem model                                        list current + available models\n/mem model use embedding <n>                      switch embedding provider\n/mem model use llm <n>                            switch llm provider\n/mem rebuild                                      manually rebuild all embeddings\n/mem prospective                                  list pending triggers\n/mem stats                                        store statistics\n/mem forget <id>                                  delete engram (supports id prefix match)\n/mem search <q> [--mode=vector|fts|hybrid|dual]  explicit recall mode (dual=two-route RRF)\n/mem export <path>                                export store to JSON\n/mem import <path>                                import from JSON (run /mem rebuild after)\n/mem graph <entity>                               pull entity + relations + source engrams\n/mem cluster <id>                                 show engram's similar_to cluster (DG separation)\n/mem narrative <topic>                            weave an autobiographical narrative on entity/topic\n/mem replay                                      manually trigger SWR replay (with decay/GC/promote)\n/mem valence                                     emotion valence histogram\n/mem streams                                     what / where+when two-stream breakdown\n/mem profile [actor]                              view / build user self-model (v1.1)\n/mem activate <seed1> [seed2 ...]                 spreading activation network (v1.1)\n/mem remember <predicate> <value> [actor]         manually write a self-model fact (v1.1)\n/mem cluster-list                                 list generated cluster summaries (v1.1)\n/mem confidence <query>                           recall with metamemory confidence (v1.2)\n/mem decaycurve [id|all]                          forgetting-curve visualization (v1.2)\n/mem consolidate                                  manually trigger consolidation (incl. episodic->semantic, v1.2)\n/mem diary                                        manually build yesterday's diary (debug, v1.22)"
+    "full_text": "## astrbot-plugin-engram-core\nv1.4.x - Hippocampus-like long-term memory framework\n\n/recall <query>                                   recall related memories (default hybrid)\n/mem help                                         show this help\n/mem model                                        list current + available models\n/mem model use embedding <n>                      switch embedding provider\n/mem model use llm <n>                            switch llm provider\n/mem rebuild                                      manually rebuild all embeddings\n/mem prospective                                  list pending triggers\n/mem stats                                        store statistics\n/mem forget <id>                                  delete engram (supports id prefix match)\n/mem search <q> [--mode=vector|fts|hybrid|dual]  explicit recall mode (dual=two-route RRF)\n/mem export <path>                                export store to JSON\n/mem import <path>                                import from JSON (run /mem rebuild after)\n/mem graph <entity>                               pull entity + relations + source engrams\n/mem cluster <id>                                 show engram's similar_to cluster (DG separation)\n/mem narrative <topic>                            weave an autobiographical narrative on entity/topic\n/mem replay                                      manually trigger SWR replay (with decay/GC/promote)\n/mem valence                                     emotion valence histogram\n/mem streams                                     what / where+when two-stream breakdown\n/mem profile [actor]                              view / build user self-model (v1.1)\n/mem activate <seed1> [seed2 ...]                 spreading activation network (v1.1)\n/mem remember <predicate> <value> [actor]         manually write a self-model fact (v1.1)\n/mem cluster-list                                 list generated cluster summaries (v1.1)\n/mem confidence <query>                           recall with metamemory confidence (v1.2)\n/mem decaycurve [id|all]                          forgetting-curve visualization (v1.2)\n/mem consolidate                                  manually trigger consolidation (incl. episodic->semantic, v1.2)\n/mem diary                                        manually build yesterday's diary (debug, v1.22)\\n/mem debug <query>                                dual-route retriever diagnostic: route distribution + RRF breakdown + MMR cuts (v1.64 B14)"
   },
   "error": {
     "service_not_initialized": "Memory service not initialized."
@@ -48,5 +48,25 @@
   "consolidated": "consolidated: {res}",
   "model": {
     "summary": "embedding.current = {cur_emb}\nembedding.available = {avail_emb}\nllm.current = {cur_llm}\nllm.available = {avail_llm}"
+  },
+  "debug": {
+    "usage": "usage: /mem debug <query>",
+    "header": "## debug: {query}  k={k}",
+    "route_dist_header": "### route distribution",
+    "route_line": "  {name}: {n} hits  top_rrf={top}",
+    "route_line_skipped": "  {name}: 0 hits  (skipped)",
+    "topk_header": "### top-k (final, post-MMR)",
+    "topk_empty": "  (no results)",
+    "topk_item": "  {i}. {score}  [{tags}]  {id8}: {summary}",
+    "topk_rrf": "       RRF: {parts}",
+    "cut_header": "### candidates cut (post-RRF, pre-truncation)",
+    "cut_none": "  (none — all RRF survivors made top-k)",
+    "cut_total": "  total cut: {n}",
+    "cut_item": "  - {score}  {id8}: {summary}",
+    "cut_more": "  ... and {n} more",
+    "summary_header": "### summary",
+    "summary_candidates": "  total RRF candidates: {n}",
+    "summary_returned": "  returned (top-k):      {n}",
+    "summary_cut": "  cut by MMR/k:          {n}"
   }
 }

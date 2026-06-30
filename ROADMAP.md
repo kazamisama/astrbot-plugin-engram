@@ -170,24 +170,28 @@
   - 与 ROADMAP 历史的差异:实际文件路径是 hippocampus/db_migration.py 而非 hippocampus/storage/db_migration.py;storage/ 子目录计划未落地,但 db_migration 在 hippocampus 根工作良好,不需移动
 ### P2：性能
 
-- [ ] **B11** graph route O(n) → O(1)：把 entity_refs 索引进 SQL，graph route 改 SQL JOIN
-  - 当前 1K engram ~10ms，10K ~100ms，10W 需要换 SQL
+- [ ] (deferred) **B11** graph route O(n) → O(1)：把 entity_refs 索引进 SQL，graph route 改 SQL JOIN
+  - 当前 0 engram（dev DB 全空），无 baseline 可测。主路径 `engrams_for_batch` 已在 v1.61 走 SQL JOIN；残留 Python 端 filter（list_recent / search_by_entity）被 `k*20` cap 限制在 O(1000) 行，实际不影响体验。等 5K+ 真实 engram、实测 >200ms 时再 profile。
 
 ### P2：发布工程
 
-- [ ] **B12** CHANGELOG.md（Keep a Changelog 格式）
-  - 跟踪 v1.3 / v1.4 / v1.5 ...
-  - 跟 metadata.yaml version 同步 bump
+- [ ] (deferred) **B12** CHANGELOG.md（Keep a Changelog 格式）
+  - ROADMAP.md + conventional commit + metadata 三件套已覆盖单人场景。等公开发布到 AstrBot 市场 / 有外部用户关注仓库时再让 `git-cliff` 自动生成。
 
-- [ ] **B13** GitHub Actions CI（跑 smoke / lint / build）
-  - `.github/workflows/smoke.yml`
-  - Python matrix 3.11/3.12/3.14
+- [ ] (deferred) **B13** GitHub Actions CI（跑 smoke / lint / build）
+  - 单人项目 + 已有手工 sweep 习惯（v1.60 "test: full sweep" commit）。等 repo 准备公开 / 接 PR / 绑定 release 自动 publish 时再加 `.github/workflows/smoke.yml`。
 
 ### P3：观测
 
-- [ ] **B14** `/mem debug` 命令：实时显示 retriever explain() 输出、route 命中分布
-  - handlers/format.py 加 format_debug
-  - main.py cmd_mem_debug 路由
+- [x] **B14** `/mem debug` 命令：实时显示 retriever explain() 输出、route 命中分布 (shipped 2026-06-30, v1.64)
+  - handlers/format.py: format_debug() ~120 行, 4 段: route 分布 / top-k 详情 / MMR 砍掉谁 / summary
+  - main.py: cmd_mem_debug `@filter.command("mem debug")` 路由
+  - handlers/event/recall.py: cmd_mem_debug 业务方法
+  - handlers/commands.py: 注册 "mem debug" -> recall.cmd_mem_debug
+  - handlers/__init__.py: format_debug re-export
+  - 顺手修了一个 latent bug: dual_route.explain() 之前只融合 document+graph, search() 多走 spread, 导致诊断少报 spread 命中. 改为两方法用同一 routes tuple 构造. 行为对齐, 兼容面零 (v65/v66 不破)
+  - i18n: hippocampus/i18n/{zh,en}.json 加 `debug.*` 20 个 key + `/mem debug` 帮助行 (v1.64 B14 说明)
+  - smoke v68 (9 测试) 全过: 0-hit 不崩 / 3 段齐全 / engram id + summary 渲染 / 解释-搜索对齐 / cut 段落 / re-export / CommandRouter 注册
 
 ---
 
